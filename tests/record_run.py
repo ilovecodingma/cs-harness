@@ -6,11 +6,12 @@ import json, os, sys, time, shutil, subprocess, pathlib, tempfile, urllib.reques
 import imageio_ffmpeg
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / ".harness" / "runs" / "author_01"
 RUN = pathlib.Path(tempfile.mkdtemp(prefix="cs_rec_"))
 OUT = pathlib.Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 NAME = sys.argv[2]
 TASK = sys.argv[3]
+SRC = ROOT / ".harness" / "runs" / (sys.argv[4] if len(sys.argv) > 4 else "author_01")   # 이어받을 지난 구간 기록
+STEP = sys.argv[5] if len(sys.argv) > 5 else "02"
 ENV = {k: v for k, v in os.environ.items() if k not in ("CS_STUDIO_PORT", "CS_AUTO_ACK")}
 ENV.update(CS_HARNESS_RUN=str(RUN), PYTHONIOENCODING="utf-8")
 LIMIT = 1800
@@ -37,15 +38,15 @@ def main():
             if http(base, "/state").get("viewers", 0) > 0:
                 break
             time.sleep(0.5)
-        http(base, "/step", {"step": "02", "title": TASK.split("|")[0]})
+        http(base, "/step", {"step": STEP, "title": TASK.split("|")[0]})
         video = OUT / f"{NAME}.mp4"
         rec = subprocess.Popen([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-f", "gdigrab", "-framerate", "15", "-offset_x", "1920", "-offset_y", "0",
                                 "-video_size", "1920x1080", "-draw_mouse", "0", "-i", "desktop", "-c:v", "libx264", "-preset", "ultrafast",
                                 "-crf", "20", "-pix_fmt", "yuv420p", str(video)],
                                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=open(OUT / f"{NAME}_ffmpeg.log", "w"))
         time.sleep(3)
-        prompt = ("CLAUDE.md 의 원칙과 흐름대로 진행해. 질문하지 말고 바로 진행해. 저자 모드 두 번째 구간이다. "
-                  "지난 구간(G1 친구와 여행 일정 공유: 일정 등록·조회, JSON 파일 저장)은 workspace/app.py 에 있고 Studio 문맥·구조에 남아 있다. 먼저 현재 상태를 확인해. "
+        prompt = ("CLAUDE.md 의 원칙과 흐름대로 진행해. 질문하지 말고 바로 진행해. 저자 모드 다음 구간이다. "
+                  "지난 구간들의 결과는 workspace/ 에 있고 목적·기능·선택·구조는 Studio 문맥(ctx)·구조(arch)에 남아 있다. 먼저 현재 코드와 데이터를 확인해. "
                   f"이번 구간: {TASK.split('|')[-1]} "
                   "목적에서 기능을, 기능에서 기술을 도출하고, 기존 방식으로 먼저 돌려 실제로 겪은 한계가 있을 때만 새 기술을 비교해. 구조 변화는 arch.py 로, 서비스는 run.py 로 띄워 "
                   "실제 요청으로 동작을 확인한 뒤 목적 달성을 검증해. 설명은 짧게. 끝나면 서비스는 켜 둔 채로 끝내.")
