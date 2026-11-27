@@ -26,7 +26,9 @@ SHELL_TOOLS = ("Bash", "PowerShell")
 READ_TOOLS = ("Read", "Glob", "Grep", "LS", "WebSearch", "WebFetch", "TodoWrite", "ToolSearch")
 # 그 밖의 도구(하위 에이전트, MCP 등)는 하네스 밖에서 일을 몰아서 처리할 수 있어 기본으로 막는다.
 MAX_WAIT = 3000  # 초. 일시정지 최대 대기
-MAX_BLOCK = int(os.environ.get("CS_MAX_BLOCK_LINES", "15"))  # 한 번에 새로 쓰는 코드 줄 수 상한(빈 줄 제외)
+# 관찰 단위는 줄 수가 아니라 '의미 있는 변화'(함수·모델·API·저장 방식 …). 줄 수 상한은 대량 일괄 작성을 막는 보조 장치.
+MAX_BLOCK = int(os.environ.get("CS_MAX_BLOCK_LINES", "60"))
+CODE_EXT = (".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css", ".sql", ".json", ".toml", ".yaml", ".yml")
 
 
 def code_lines(text):
@@ -55,8 +57,29 @@ def in_ws(p):
     return p is not None and (p == WS or WS in p.parents)
 
 
-def is_say(cmd):  # 설명 이벤트 전달용 명령은 지연·정지 대상에서 뺀다
-    return "harness/say.py" in cmd.replace("\\", "/")
+import re
+_META = re.compile(r"^\s*(?:&\s*)?python(?:3)?(?:\.exe)?\s+(?:-X\s+utf8\s+)?(?:\./)?harness/(?:say|ctx|arch)\.py(?:\s|$)")
+
+
+def is_say(cmd):
+    """설명·문맥 기록용 명령(say.py/ctx.py)만 지연·정지·표시 없이 통과.
+    명령 전체가 그 호출 하나일 때만 인정한다(뒤에 ; && | > 등으로 다른 명령을 붙이면 일반 명령으로 취급)."""
+    c = cmd.replace("\\", "/")
+    if not _META.match(c):
+        return False
+    # 따옴표 밖의 연결·치환 기호가 있으면 다른 명령이 섞인 것
+    outside, q = [], None
+    for ch in c:
+        if q:
+            if ch == q:
+                q = None
+            continue
+        if ch in "\"'":
+            q = ch
+            continue
+        outside.append(ch)
+    rest = "".join(outside)
+    return not any(t in rest for t in (";", "&&", "||", "|", ">", "<", "`", "$(", "\n"))
 
 
 def pre(p):
@@ -82,6 +105,24 @@ def pre(p):
             deny(f"실습 작업 공간(workspace/) 밖의 파일입니다: {t}")
     if tool in SHELL_TOOLS and is_say(inp.get("command", "")):
         return
+    # Studio 에서 사용자가 질문했으면, 하려던 작업 대신 질문을 Claude 에게 전달한다(과외 모드)
+    q = call("/question/take", {}).get("question")
+    if q:
+        sel = q.get("selected")
+        nl = chr(10)
+        deny(f"[사용자 질문 {q['id']}] {q['text']}"
+             + (f"{nl}(사용자가 화면에서 선택한 요소: {json.dumps(sel, ensure_ascii=False)})" if sel else "")
+             + nl + "하려던 작업은 아직 하지 않았습니다. 먼저 실제 파일·실행 결과·흐름을 확인해 `python harness/say.py` 로 답하세요. "
+               "필요하면 실험해서 보여 주되 `python harness/ctx.py experiment ... --kind compare` 로 남기고, "
+               "끝나면 어디로 돌아가는지 말한 뒤 원래 작업을 다시 시도하세요.")
+    # 목적이 기능을, 기능이 기술(코드)을 결정한다: 현재 목적·기능이 정해지지 않으면 코드를 쓰지 않는다
+    if tool in FILE_TOOLS:
+        c = call("/context")
+        if not c.get("goal") or not c.get("feature"):
+            call("/event", {"type": "BLOCKED", "status": "error", "data": {"tool": tool, "why": "현재 목적·기능이 정해지지 않음"}})
+            deny("지금 무엇을 위해 이 코드를 쓰는지(목적과 기능)가 정해지지 않았습니다. 먼저 "
+                 "`python harness/ctx.py goal \"...\"` 와 `python harness/ctx.py feature \"...\"` 로 정하고, "
+                 "기존 방식으로 안 되는 점과 선택 이유도 ctx.py 로 남긴 뒤 코드를 쓰세요.")
     # 블록 하나씩: 한 번에 너무 많은 코드를 쓰면 막는다(하나하나 보여 주고 설명하기 위해)
     if tool in FILE_TOOLS:
         if tool == "Write":
@@ -99,15 +140,16 @@ def pre(p):
     # 일시정지면 풀릴 때까지 새 작업을 시작하지 않는다
     waited = 0.0
     announced = False
-    while st["mode"] != "running" and waited < MAX_WAIT:
+    while st["mode"] not in ("running", "tutoring") and waited < MAX_WAIT:
         if not announced:
             call("/event", {"type": "WAITING", "data": {"tool": tool, "why": "일시정지 중이라 다음 작업을 시작하지 않음"}})
             announced = True
         time.sleep(0.3)
         waited += 0.3
         st = call("/state")
-    if st["mode"] != "running":
+    if st["mode"] not in ("running", "tutoring"):
         deny("일시정지가 풀리지 않아 작업을 시작하지 못했습니다.")
+    explore = st["mode"] == "tutoring"
     # 이벤트 종류 결정(실제 상태를 보고 정한다)
     data = {"tool": tool}
     show = {"tool": tool}
@@ -131,8 +173,11 @@ def pre(p):
                     description=inp.get("description", ""))
     else:
         typ = "TOOL"
+    if explore:                      # 과외 중 실험은 원래 개발 경로와 구분해 기록
+        data["explore"] = show["explore"] = True
     # 실제로 하기 전에 화면에 먼저 보여 준다. 화면이 다 보여 줬다고 알려야(ack) 진행한다.
     ev = call("/event", {"type": "PRESENT", "data": show})
+    data["present"] = ev["id"]       # 같은 작업의 화면 표시·실행·검증을 하나로 잇는 식별자
     waited = 0.0
     while waited < MAX_WAIT:
         st = call("/state")
@@ -146,8 +191,10 @@ def pre(p):
     else:
         deny("화면이 작업을 다 보여 주지 못해 시작하지 않았습니다.")
     # 화면을 보는 동안 일시정지가 걸렸으면 풀릴 때까지 대기
-    while call("/state")["mode"] != "running":
+    while call("/state")["mode"] not in ("running", "tutoring"):
         time.sleep(0.3)
+    if tool in SHELL_TOOLS:          # 명령이 workspace 파일을 몰래 바꾸는지 보려고 실행 전 상태를 찍어 둔다
+        snap_save(p.get("tool_use_id") or "last", snapshot())
     call("/event", {"type": typ, "data": data})
     time.sleep(float(st.get("delay", 0)))
 
@@ -158,11 +205,21 @@ def post(p):
         return
     resp = p.get("tool_response") or {}
     if tool in FILE_TOOLS:
+        # 완료 판정은 파일 존재가 아니라 '의도한 내용이 실제로 들어갔는가'
         t = target_path(inp)
-        ok = t is not None and t.exists()   # 완료는 실제 결과 확인 뒤에만
-        call("/event", {"type": "VALIDATE", "status": "ok" if ok else "error",
-                        "data": {"what": "파일 존재", "path": t.relative_to(WS).as_posix() if in_ws(t) else str(t), "exists": ok,
-                                 "size": t.stat().st_size if ok else 0}})
+        ok = t is not None and t.exists()
+        text = t.read_text(encoding="utf-8", errors="replace") if ok else ""
+        norm = lambda s: (s or "").replace(chr(13) + chr(10), chr(10))
+        if tool == "Write":
+            match = ok and norm(text) == norm(inp.get("content"))
+            what = "파일 내용 = 쓰려던 내용"
+        else:
+            eds = inp.get("edits") or [inp]
+            match = ok and all(norm(e.get("new_string")) in norm(text) for e in eds)
+            what = "수정한 내용이 파일에 들어감"
+        call("/event", {"type": "VALIDATE", "status": "ok" if match else "error",
+                        "data": {"what": what, "path": t.relative_to(WS).as_posix() if in_ws(t) else str(t), "exists": ok,
+                                 "content_ok": bool(match), "size": t.stat().st_size if ok else 0}})
     elif tool in SHELL_TOOLS:
         if isinstance(resp, dict):
             out, err = resp.get("stdout", ""), resp.get("stderr", "")
@@ -172,6 +229,40 @@ def post(p):
             out, err, code, interrupted = str(resp), "", None, False
         call("/event", {"type": "COMMAND_OUTPUT", "status": "error" if (err or interrupted) else "ok",
                         "data": {"stdout": out, "stderr": err, "exit_code": code, "raw_keys": sorted(resp) if isinstance(resp, dict) else None}})
+        before = snap_load(p.get("tool_use_id") or "last")
+        if before is not None:
+            after = snapshot()
+            added = sorted(set(after) - set(before))
+            removed = sorted(set(before) - set(after))
+            changed = sorted(k for k in set(after) & set(before) if after[k] != before[k])
+            if added or removed or changed:
+                code_touched = [f for f in added + changed + removed if f.endswith(CODE_EXT) and not f.endswith(".json")]
+                call("/event", {"type": "FILES_CHANGED_BY_COMMAND", "status": "error" if code_touched else "ok",
+                                "data": {"added": added, "changed": changed, "removed": removed, "code_touched": code_touched,
+                                         "why": ("명령이 코드 파일을 바꿈 — 화면에 먼저 보이지 않은 변경" if code_touched else "프로그램 실행이 데이터 파일을 바꿈")}})
+
+
+def snapshot():
+    out = {}
+    for f in WS.rglob("*"):
+        if f.is_file() and not any(x in f.parts for x in (".git", "node_modules", "__pycache__", ".venv")):
+            st = f.stat()
+            out[f.relative_to(WS).as_posix()] = [st.st_size, int(st.st_mtime_ns)]
+    return out
+
+
+def snap_save(key, snap):
+    (RUN / "snaps").mkdir(parents=True, exist_ok=True)
+    (RUN / "snaps" / f"{re.sub(r'[^A-Za-z0-9_-]', '_', key)}.json").write_text(json.dumps(snap), encoding="utf-8")
+
+
+def snap_load(key):
+    f = RUN / "snaps" / f"{re.sub(r'[^A-Za-z0-9_-]', '_', key)}.json"
+    if not f.exists():
+        return None
+    d = json.loads(f.read_text(encoding="utf-8"))
+    f.unlink()
+    return d
 
 
 def main():

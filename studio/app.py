@@ -73,7 +73,10 @@ def front_watcher(port):
             evs = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/events?since={last}", timeout=2).read())
             for e in evs:
                 last = max(last, e["id"])
-                if e["type"] == "PRESENT":
+                d = e.get("data") or {}
+                front = e["type"] in ("PRESENT", "ARCH", "APP_URL", "QUESTION", "ERROR", "STEP_STARTED") or (
+                    e["type"] == "HTTP_RESPONSE" and not any(x in (d.get("content_type") or "") for x in ("html", "javascript", "css", "image", "icon")))
+                if front:
                     ok = bring_to_front()
                     urllib.request.urlopen(urllib.request.Request(
                         f"http://127.0.0.1:{port}/event", headers={"Content-Type": "application/json"},
@@ -110,7 +113,7 @@ def main():
     if pf.exists():
         pf.unlink()
     srv = subprocess.Popen([sys.executable, "-X", "utf8", str(HERE / "server.py")] + (["--watch-input"] if a.watch_input else []),
-                           cwd=ROOT, env={**os.environ, "CS_HARNESS_RUN": str(RUN)},
+                           cwd=ROOT, env={**os.environ, "CS_HARNESS_RUN": str(RUN), "CS_PARENT_PID": str(os.getpid())},
                            creationflags=0x08000000 if os.name == "nt" else 0)   # CREATE_NO_WINDOW
     try:
         port = None

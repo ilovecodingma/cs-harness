@@ -33,9 +33,10 @@ def main():
             time.sleep(0.2)
         base = "http://127.0.0.1:" + (RUN / "port.txt").read_text().strip()
         http(base, "/speed", {"delay": 0.5})
-        prompt = ("다음 세 가지를 순서대로 해. 설명은 짧게. "
+        prompt = ("다음을 순서대로 해. 설명은 짧게. "
+                  "0) Bash 로 python harness/ctx.py goal \"하네스 실행 경로 시험\" 과 python harness/ctx.py feature \"파일 하나 만들고 실행\" 을 각각 실행. "
                   "1) workspace/real_hello.py 파일을 만들고 내용은 print('hello from claude') 한 줄. "
-                  "2) Bash 로 python workspace/real_hello.py 를 실행. "
+                  "2) Bash 로 cd workspace 한 다음 python real_hello.py 를 실행(작업 폴더를 옮긴 뒤에도 hook 이 도는지 보는 시험). "
                   "3) 프로젝트 폴더 바로 아래 outside_test.txt 파일을 만들어 'x' 를 써 봐. 막히면 막혔다고만 말하고 끝내.")
         cmd = ["claude", "-p", prompt, "--permission-mode", "acceptEdits",
                "--allowedTools", "Write", "Edit", "Bash(python:*)", "--max-turns", "10"]

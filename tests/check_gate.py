@@ -59,6 +59,14 @@ def main():
                            env={**ENV, "CS_STUDIO_PORT": BASE.rsplit(":", 1)[1], "CS_HARNESS_RUN": str(RUN / "dup")}, cwd=ROOT,
                            capture_output=True, text=True, encoding="utf-8", timeout=10)
         check("같은 포트 중복 실행 막힘", r.returncode != 0)
+        # 목적이 기능을, 기능이 코드를: 목적·기능 없이 코드 쓰기 거부
+        d, _, _ = hook(pre("Write", {"file_path": f_in, "content": "x"}))
+        check("목적·기능이 없으면 코드 쓰기 거부", d == "deny")
+        http("/context", {"kind": "service", "text": "시험 서비스"})
+        http("/context", {"kind": "goal", "text": "시험 목적"})
+        d, _, _ = hook(pre("Write", {"file_path": f_in, "content": "x"}))
+        check("목적만 있고 기능이 없어도 거부", d == "deny")
+        http("/context", {"kind": "feature", "text": "시험 기능"})
         # 3. workspace 밖 → 거부
         d, _, _ = hook(pre("Write", {"file_path": str(ROOT / "evil.txt"), "content": "x"}))
         check("작업 공간 밖 파일 쓰기 거부", d == "deny")
@@ -74,9 +82,9 @@ def main():
         th0.start(); time.sleep(3)
         check("PowerShell 도 일시정지 중 붙잡힘", th0.is_alive())
         http("/resume", {}); th0.join(15)
-        big = "\n".join(f"x{i} = {i}" for i in range(30))
+        big = "\n".join(f"x{i} = {i}" for i in range(80))
         d, _, out = hook(pre("Write", {"file_path": f_in, "content": big}))
-        check("한 번에 30줄 쓰기는 거부(블록 하나씩)", d == "deny")
+        check("한 번에 80줄 쓰기는 거부(대량 일괄 작성 방지)", d == "deny")
         # 4. 정상 → 허용 + 지연
         d, dt, _ = hook(pre("Write", {"file_path": f_in, "content": "x"}))
         check("작업 공간 안 쓰기 허용 + 지연 적용", d == "allow" and dt >= 1.0, f"{dt:.2f}초")
@@ -94,10 +102,14 @@ def main():
         http("/pause", {"reason": "검증2"})
         d, dt, _ = hook(pre("Bash", {"command": "python harness/say.py 설명"}))
         check("일시정지 중에도 설명(say) 은 바로 통과", d == "allow" and dt < 1.0, f"{dt:.2f}초")
-        http("/resume", {})
+        box2 = {}
+        th2 = threading.Thread(target=lambda: box2.update(r=hook(pre("Bash", {"command": "python harness/ctx.py show; echo 몰래"}))))
+        th2.start(); time.sleep(3)
+        check("ctx.py 뒤에 다른 명령을 붙이면 일반 명령처럼 붙잡힘", th2.is_alive())
+        http("/resume", {}); th2.join(15)
         # 7. 완료 판정은 실제 결과로
         pathlib.Path(f_in).write_text("x", encoding="utf-8")
-        hook({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": f_in}, "tool_response": {}})
+        hook({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": f_in, "content": "x"}, "tool_response": {}})
         hook({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": str(WS / "_none.py")}, "tool_response": {}})
         ev = [e for e in http("/events") if e["type"] == "VALIDATE"]
         check("파일이 있으면 VALIDATE ok", any(e["status"] == "ok" and e["data"]["exists"] for e in ev))
@@ -111,6 +123,40 @@ def main():
         raw = urllib.request.Request(BASE + "/pause", data='{"reason":"한글"}'.encode("cp949"), headers={"Content-Type": "application/json"})
         urllib.request.urlopen(raw, timeout=3).read()
         check("cp949 요청에도 서버가 응답", http("/state")["reason"] == "한글")
+        http("/resume", {})
+        # 내용 검증: 파일이 있어도 내용이 다르면 실패
+        pathlib.Path(f_in).write_text("전혀 다른 내용", encoding="utf-8")
+        hook({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": f_in, "content": "x = 1"}, "tool_response": {}})
+        v = [e for e in http("/events") if e["type"] == "VALIDATE"][-1]
+        check("파일이 있어도 내용이 다르면 VALIDATE error", v["status"] == "error" and v["data"]["content_ok"] is False)
+        # 셸 명령으로 코드 파일을 바꾸면 경고
+        sneaky = WS / "_sneaky.py"
+        pl = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "echo x > workspace/_sneaky.py"}, "cwd": str(ROOT), "tool_use_id": "tu_sneak"}
+        hook(pl)
+        sneaky.write_text("print('몰래')", encoding="utf-8")
+        hook({**pl, "hook_event_name": "PostToolUse", "tool_response": {"stdout": "", "stderr": ""}})
+        fc = [e for e in http("/events") if e["type"] == "FILES_CHANGED_BY_COMMAND"]
+        check("셸 명령이 코드 파일을 만들면 경고 이벤트", fc and fc[-1]["status"] == "error" and "_sneaky.py" in fc[-1]["data"]["code_touched"])
+        sneaky.unlink()
+        # 질문 전달: Studio 에서 질문하면 다음 작업 대신 질문이 Claude 에게 간다
+        http("/ask", {"text": "이 값은 어디서 와?", "selected": {"type": "파라미터·값", "label": "destination"}})
+        d, _, out = hook(pre("Bash", {"command": "python -V"}))
+        reason = out.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+        check("Studio 질문이 다음 작업 대신 Claude 에게 전달됨", d == "deny" and "이 값은 어디서 와?" in reason and "destination" in reason)
+        st = http("/state")
+        d2, _, _ = hook(pre("Write", {"file_path": f_in, "content": "y = 2"}))
+        ex = [e for e in http("/events") if e["type"] == "PRESENT"][-1]
+        check("과외 중에는 실험 작업이 허용되고 따로 표시됨", st["mode"] == "tutoring" and d2 == "allow" and ex["data"].get("explore") is True)
+        http("/resume", {})
+        evs = http("/events")
+        code_evs = [e for e in evs if e["type"] in ("CREATE_FILE", "WRITE_CODE", "MODIFY_CODE")]
+        check("코드 이벤트에 그 순간의 목적·기능이 연결됨", code_evs and all(e["ctx"]["goal"] and e["ctx"]["feature"] for e in code_evs),
+              f"{code_evs[-1]['ctx'] if code_evs else ''}")
+        c = http("/context")
+        http("/context", {"kind": "goal", "text": "두 번째 목적"})
+        c2 = http("/context")
+        check("새 목적을 정하면 기능은 비고 지난 것은 history 로", c2["feature"] is None and c2["history"] and c2["history"][-1]["feature"]["text"] == "시험 기능")
+        check("문맥이 파일로 남음(세션 이어가기)", (RUN / "context.json").exists())
         print("\n이벤트 기록:")
         for e in http("/events"):
             print(" ", e["id"], e["type"], e["status"], json.dumps(e["data"], ensure_ascii=False)[:80])
@@ -141,6 +187,8 @@ def gate_view_test():
             time.sleep(0.2)
         BASE = "http://127.0.0.1:" + (run2 / "port.txt").read_text().strip()
         ENV.clear(); ENV.update(env2)
+        http("/context", {"kind": "goal", "text": "화면 시험"})
+        http("/context", {"kind": "feature", "text": "화면 확인 게이트"})
         f = str(WS / "_view_test.py")
         d, _, _ = hook(pre("Write", {"file_path": f, "content": "a = 1\n"}))
         check("화면(Studio 창)이 없으면 작업 거부", d == "deny")

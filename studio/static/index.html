@@ -5,157 +5,420 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CS Studio</title>
 <style>
-:root{--bg:#121418;--pn:#1b1e25;--bd:#2c313c;--tx:#dde2ea;--mu:#8b93a3;--ok:#4cc38a;--er:#ef6b6b;--add:rgba(76,195,138,.16);--del:rgba(239,107,107,.18);--cur:rgba(110,168,254,.16);--ac:#6ea8fe;--kw:#c792ea;--st:#e6c07b;--cm:#6a7385;--nu:#f78c6c}
-@media (prefers-color-scheme:light){:root{--bg:#eef0f4;--pn:#fff;--bd:#d6d9e0;--tx:#1d2330;--mu:#5d6676;--add:#dcf5e6;--del:#fde2e2;--cur:#e3edff;--ac:#1f5fd1;--kw:#7a3fbf;--st:#9a6a00;--cm:#8a93a3;--nu:#b34d1f}}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,"Malgun Gothic",sans-serif;display:grid;grid-template-rows:auto 1fr auto}
-header{display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--pn);flex-wrap:wrap}
-header b{font-size:15px;letter-spacing:.3px}
-#badge{padding:2px 10px;border-radius:99px;font-weight:600;background:var(--ok);color:#06210f}
-#badge.paused{background:#e5b84b;color:#2a1d00}
-#badge.off{background:var(--mu);color:#111}
-button{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 12px;cursor:pointer;font:inherit}
+:root{--bg:#0f1218;--pn:#171b23;--pn2:#1d222c;--line:#262c38;--tx:#e6eaf1;--mu:#8e97a8;--ok:#43c486;--okbg:rgba(67,196,134,.15);--er:#ef6b6b;--erbg:rgba(239,107,107,.12);--wa:#e5b84b;--ac:#6ea8fe;--acbg:rgba(110,168,254,.14);--kw:#c792ea;--st:#e6c07b;--cm:#6a7385;--nu:#f78c6c;--split:56%;--drawer:44vh}
+@media (prefers-color-scheme:light){:root{--bg:#f1f3f7;--pn:#fff;--pn2:#f6f8fb;--line:#e2e6ee;--tx:#1a2130;--mu:#5f6878;--okbg:#ddf5e8;--erbg:#fde5e5;--acbg:#e5eeff;--ac:#2563d6;--kw:#7a3fbf;--st:#9a6a00;--cm:#8a93a3;--nu:#b34d1f}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,"Malgun Gothic",sans-serif;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;overflow:hidden}
+button{background:transparent;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:4px 12px;cursor:pointer;font:inherit;font-size:13px}
 button:hover{border-color:var(--ac)}
 .mu{color:var(--mu)}
-main{display:grid;grid-template-columns:200px minmax(0,1fr) 380px;gap:8px;padding:8px;min-height:0}
-section{background:var(--pn);border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0}
-section h2{margin:0;padding:6px 10px;font-size:12px;color:var(--mu);border-bottom:1px solid var(--bd);font-weight:600;display:flex;gap:8px;align-items:center}
-.body{overflow:auto;padding:8px 10px;flex:1;min-height:0}
-#right{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-height:0}
-/* 강의 무대 */
-#stageh{font-size:13px;color:var(--tx)}
-#stageh .tag{padding:1px 8px;border-radius:4px;background:var(--cur);color:var(--ac);font-weight:600}
-#stage pre{margin:0;font:14px/1.6 Consolas,"D2Coding",monospace;counter-reset:ln}
-.l{display:block;padding:0 8px 0 0;white-space:pre-wrap;word-break:break-all;border-left:3px solid transparent}
-.l::before{counter-increment:ln;content:counter(ln);display:inline-block;width:3em;margin-right:12px;text-align:right;color:var(--cm);user-select:none}
-.l.cur{background:var(--cur);border-left-color:var(--ac)}
-.l.add{background:var(--add);border-left-color:var(--ok)}
-.l.del{background:var(--del);border-left-color:var(--er);text-decoration:line-through;text-decoration-color:rgba(239,107,107,.6)}
-.l.dim{opacity:.45}
+.fade{animation:fade .35s ease}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* 머리줄 */
+header{display:flex;align-items:center;gap:10px;padding:10px 22px}
+header .logo{font-weight:800;font-size:16px;margin-right:6px}
+#badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ok)}#badge::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+#badge.paused{color:var(--wa)}#badge.tutoring{color:var(--ac)}#badge.off{color:var(--mu)}
+header .sp{margin-left:auto;display:flex;align-items:center;gap:8px}
+#autoBtn.off{color:var(--wa);border-color:var(--wa)}
+
+/* 목적 */
+#purpose{padding:4px 22px 14px}
+#pstep{font-size:13px;color:var(--mu)}
+#ptitle{font-size:24px;font-weight:800;line-height:1.35;margin:2px 0}
+#psub{font-size:14.5px;color:var(--mu);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#ptitle{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#prow{display:flex;align-items:baseline;gap:12px}
+#pverify{font-size:13px;font-weight:700;white-space:nowrap}#pverify.pass{color:var(--ok)}#pverify.fail{color:var(--er)}
+#pmore{margin-left:auto;white-space:nowrap}
+#pdetail{display:none;margin-top:10px;display:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;font-size:13.5px}
+#pdetail.open{display:grid}
+#pdetail h4{margin:0 0 3px;font-size:12px;color:var(--mu);font-weight:600}
+#pdetail ul{margin:0;padding-left:16px}.pro{color:var(--ok)}.con{color:var(--er)}
+
+/* 무대 */
+#stage{display:grid;grid-template-columns:var(--split) 10px minmax(0,1fr);padding:0 22px 12px;min-height:0;border-top:1px solid var(--line);padding-top:14px}
+.slot{min-width:0;min-height:0;display:flex;flex-direction:column}
+.slot>.panel{flex:1;min-height:0;display:flex;flex-direction:column}
+#gutter{cursor:col-resize;position:relative}#gutter::after{content:"";position:absolute;left:4px;top:30%;bottom:30%;width:2px;border-radius:2px;background:var(--line)}
+#gutter:hover::after{background:var(--ac)}
+.ptitle{font-size:13px;color:var(--mu);margin-bottom:8px;display:flex;gap:8px;align-items:center;white-space:nowrap;overflow:hidden}
+.ptitle b{color:var(--tx);font-weight:600}
+.pbody{flex:1;min-height:0;overflow:auto}
+#parking{display:none}
+/* 실제 서비스 */
+#appwrap{flex:1;min-height:0;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 0 var(--line)}
+#app{width:100%;height:100%;border:0;display:block}
+#appph{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mu);border-radius:12px;background:var(--pn);padding:20px}
+/* 흐름도 */
+#flowbox{flex:1;min-height:0;position:relative}
+#svg{width:100%;height:100%;display:block}
+svg text{font-family:system-ui,"Malgun Gothic",sans-serif}
+.node rect{fill:var(--pn2);stroke:#3a4356;stroke-width:1.5;transition:fill .3s,stroke .3s}
+.node .t1{fill:var(--tx);font-size:19px;font-weight:700}.node .t2{fill:var(--mu);font-size:14px}
+.node.active rect{fill:var(--okbg);stroke:var(--ok);stroke-width:2.5}
+.node.active .t1{fill:var(--ok)}
+.node.changing rect{stroke:var(--wa);stroke-width:2.5}
+.node.new rect{stroke:var(--ac);stroke-width:2.5}
+.node{cursor:pointer}.node.sel rect{stroke:var(--wa);stroke-width:3}
+.edge path{stroke:#4f6fa8;stroke-width:2;fill:none;transition:stroke .3s}
+.edge.active path{stroke:var(--ok);stroke-width:3}
+.edge text{fill:var(--mu);font-size:12.5px}.edge{cursor:pointer}.edge.sel path{stroke:var(--wa);stroke-width:3}
+.chip rect{fill:#1f3a66;stroke:#3b6bb8}.chip text{fill:#cfe0ff;font-size:13px;font-weight:600}
+@media (prefers-color-scheme:light){.chip rect{fill:#dbe8ff;stroke:#7aa2e8}.chip text{fill:#1a3f86}}
+#flownote{position:absolute;right:4px;bottom:2px;font-size:11.5px;color:var(--mu)}
+/* 코드 · 파라미터 · 오류 (무대용) */
+pre.code{margin:0;font:14px/1.65 Consolas,"D2Coding",monospace;counter-reset:ln}
+.l{display:block;padding-right:8px;white-space:pre-wrap;word-break:break-all;border-left:3px solid transparent;cursor:pointer;border-radius:2px}
+.l::before{counter-increment:ln;content:counter(ln);display:inline-block;width:2.6em;margin-right:12px;text-align:right;color:var(--cm);user-select:none}
+.l.cur{background:var(--acbg);border-left-color:var(--ac)}.l.run{background:var(--okbg);border-left-color:var(--ok)}
+.l.add{background:var(--okbg);border-left-color:var(--ok)}.l.del{background:var(--erbg);border-left-color:var(--er);text-decoration:line-through}.l.dim{opacity:.4}.l.errl{background:var(--erbg);border-left-color:var(--er)}
 .kw{color:var(--kw)}.st{color:var(--st)}.cm{color:var(--cm);font-style:italic}.nu{color:var(--nu)}
-#bar{height:3px;background:var(--ac);width:0;transition:width .1s linear}
-.cmdbig{font:16px/1.6 Consolas,monospace;padding:14px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
-.cmdbig .p{color:var(--ac)}
-/* 탐색기 */
-.f{padding:1px 4px;border-radius:4px;white-space:nowrap;font-size:13px}.f.new{background:var(--add)}.f.dir{color:var(--mu)}.f.sel{outline:1px solid var(--ac)}
-/* 설명·터미널 */
-.say{padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--ac);background:var(--cur);border-radius:4px}
-.say.last{font-size:15px}
-#termb{margin:0;font:12.5px/1.5 Consolas,monospace;white-space:pre-wrap;word-break:break-all}
-.cmd{color:var(--ac)}.err{color:var(--er)}.okc{color:var(--ok)}
-footer{border-top:1px solid var(--bd);background:var(--pn);padding:4px 12px;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:1000px){main{grid-template-columns:1fr}#right{grid-template-rows:auto auto}}
+#bar{height:3px;background:var(--ac);width:0;border-radius:2px;margin-bottom:6px;transition:width .1s linear}
+.cmdbig{font:16px/1.6 Consolas,monospace;padding:14px 16px;border-radius:10px;background:var(--pn)}
+.pr{font:13.5px/1.5 Consolas,monospace;padding:5px 10px;border-radius:8px;cursor:pointer;white-space:pre-wrap;word-break:break-all;margin-bottom:3px;transition:background .25s}
+.pr .k{display:inline-block;min-width:74px;color:var(--mu);font:12.5px system-ui,"Malgun Gothic"}
+.pr.cur{background:var(--okbg)}.pr.hit{box-shadow:inset 3px 0 0 var(--wa)}
+.pr.req{color:var(--ac)}.pr.db{color:var(--st)}.pr.err{color:var(--er)}
+.tr{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.tr button{padding:1px 8px;font-size:12px}.tr button.on{background:var(--acbg);border-color:var(--ac);color:var(--ac)}
+#errbox pre{white-space:pre-wrap;font:13px/1.5 Consolas,monospace;color:var(--er);background:var(--erbg);padding:10px;border-radius:8px;margin:0 0 10px}
+
+/* Claude */
+#claude{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,38%);gap:20px;padding:14px 22px;border-top:1px solid var(--line);background:var(--pn)}
+#ctitle{font-size:13px;color:var(--mu);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+#csay{font-size:17px;line-height:1.6;max-height:110px;overflow:auto}
+#csay.q{color:var(--wa)}
+#ask{display:flex;flex-direction:column;gap:6px}
+#selchip{font-size:12.5px;color:var(--mu)}#selchip b{color:var(--wa)}
+#qrow{display:flex;gap:8px}
+#qtext{flex:1;resize:none;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;height:64px}
+#qtext:focus{outline:none;border-color:var(--ac)}
+#qsend{padding:0 18px;font-size:14px;border-color:var(--ac);color:var(--ac)}
+
+/* 아래 막대 · 서랍 */
+#tabs{display:flex;gap:4px;padding:6px 18px;border-top:1px solid var(--line);font-size:13.5px}
+#tabs button{border:0;padding:4px 10px}#tabs button::before{content:"› ";color:var(--mu)}#tabs button.on{color:var(--ac)}#tabs button.on::before{content:"⌄ "}
+#tabs .cnt{color:var(--mu);font-size:12px;margin-left:3px}
+#drawer{position:fixed;left:0;right:0;bottom:38px;height:var(--drawer);background:var(--pn);border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.35);display:none;flex-direction:column;z-index:10}
+#drawer.open{display:flex}
+#dhandle{height:10px;cursor:row-resize;position:relative}#dhandle::after{content:"";position:absolute;left:50%;top:3px;width:48px;height:4px;margin-left:-24px;border-radius:2px;background:var(--line)}
+#dbody{flex:1;min-height:0;overflow:auto;padding:4px 22px 14px}
+.dsec{display:none}.dsec.on{display:block}
+#dcode{display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px}
+.f{padding:2px 6px;border-radius:6px;white-space:nowrap;font-size:13.5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis}.f.dir{color:var(--mu);cursor:default}.f:hover{background:var(--pn2)}.f.new{background:var(--okbg)}
+.f .role{font-size:12px;color:var(--ac);margin-left:6px}
+.lg{font:12.5px/1.5 Consolas,monospace;padding:2px 6px;cursor:pointer;white-space:pre-wrap;word-break:break-all;border-radius:4px}.lg:hover{background:var(--pn2)}
+.lg .tg{font:12px system-ui,"Malgun Gothic";color:var(--mu);margin-right:6px}.lg.err{color:var(--er)}.lg.ok2{color:var(--ok)}.lg.req{color:var(--ac)}.lg.db{color:var(--st)}
+.lg .det{display:none;color:var(--mu);margin:2px 0 4px}.lg.open .det{display:block}
+.hist{padding:8px 0;border-bottom:1px solid var(--line)}.hist.q{color:var(--wa)}.hist small{color:var(--mu);margin-right:8px}
+.sel{outline:2px solid var(--wa)!important;outline-offset:1px}
+@media (max-width:1100px){#stage{grid-template-columns:1fr;grid-auto-rows:minmax(300px,1fr);overflow:auto}#gutter{display:none}#claude{grid-template-columns:1fr}#ptitle{font-size:20px}#pdetail.open{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <header>
-  <b>CS Studio</b><span id="badge" class="off">연결 중</span><span id="step" class="mu"></span>
-  <button id="bp" title="Space">일시정지</button><button id="br" title="Space">재개</button><button id="bn" title="→">다음 블록 ▶</button>
-  <label class="mu">속도 <input id="sp" type="range" min="0.25" max="4" step="0.25" value="1" style="vertical-align:middle"> <span id="spv">1</span>×</label>
-  <span id="why" class="mu"></span>
-</header>
-<main>
-  <section><h2>프로젝트 탐색기 · workspace</h2><div class="body" id="treeb"></div></section>
-  <section id="stage"><h2 id="stageh"><span class="mu">강의 무대</span></h2><div id="bar"></div><div class="body" id="stageb"><p class="mu">Claude 가 코드를 쓰거나 명령을 실행하려 하면, 실제로 하기 전에 여기에 먼저 하나씩 보여 줍니다.</p></div></section>
-  <div id="right">
-    <section><h2>Claude 설명</h2><div class="body" id="sayb"></div></section>
-    <section><h2>터미널 · 실제 출력</h2><div class="body"><pre id="termb"></pre></div></section>
+  <span class="logo">CS Studio</span><span id="badge" class="off">연결 중</span><span id="why" class="mu" style="font-size:13px"></span>
+  <div class="sp">
+    <button id="autoBtn" title="작업에 따라 화면을 자동으로 바꿈">자동 화면 전환</button>
+    <button id="bp" title="Space">일시정지</button><button id="br" title="Space">재개</button><button id="bn" title="→">다음 ▶</button>
+    <label class="mu" style="font-size:13px">속도 <input id="sp" type="range" min="0.25" max="4" step="0.25" value="1" style="vertical-align:middle;width:90px"> <span id="spv">1</span>×</label>
+    <button id="fs" title="전체 화면">⛶</button>
   </div>
-</main>
-<footer id="tl">이벤트 없음</footer>
+</header>
+
+<div id="purpose">
+  <div id="pstep">목적이 정해지면 개발을 시작합니다</div>
+  <div id="prow"><div id="ptitle">—</div><span id="pverify"></span><button id="pmore">자세히 ▾</button></div>
+  <div id="psub"></div>
+  <div id="pdetail">
+    <div><h4>해결할 문제 · 기존 방식의 한계</h4><div id="d-problem" class="mu">—</div></div>
+    <div><h4>검토한 기술 · 대안</h4><div id="d-option" class="mu">—</div></div>
+    <div><h4>선택한 기술과 이유</h4><div id="d-decide" class="mu">—</div></div>
+    <div><h4>성공 조건 · 검증</h4><div id="d-success" class="mu">—</div></div>
+  </div>
+</div>
+
+<div id="stage">
+  <div class="slot" id="slotA"></div><div id="gutter" title="끌어서 크기 조절"></div><div class="slot" id="slotB"></div>
+</div>
+<div id="parking">
+  <div class="panel" id="pService"><div class="ptitle"><b>실제 서비스</b><span id="appurl"></span></div>
+    <div id="appph">아직 실행 중인 서비스가 없습니다.<br><span style="font-size:13px">Claude 가 서비스를 띄우면 실제 화면이 여기에 나옵니다.</span></div>
+    <div id="appwrap" style="display:none"><iframe id="app" title="실제 서비스 화면"></iframe></div></div>
+  <div class="panel" id="pFlow"><div class="ptitle"><b>시스템 동작 흐름</b><span id="flowsub"></span></div>
+    <div id="flowbox"><svg id="svg"></svg><div id="flownote">움직이는 값 = 실제 관측값</div></div></div>
+  <div class="panel" id="pCode"><div class="ptitle" id="codeh"><b>코드</b></div><div id="bar"></div><div class="pbody" id="codeb"></div></div>
+  <div class="panel" id="pParams"><div class="ptitle"><b>파라미터와 반환값</b><span id="ptrace"></span></div><div class="pbody" id="sparams"></div></div>
+  <div class="panel" id="pError"><div class="ptitle"><b style="color:var(--er)">오류</b><span id="errwhere"></span></div><div class="pbody" id="errbox"></div></div>
+</div>
+
+<div id="claude">
+  <div><div id="ctitle">💬 <b style="color:var(--tx)">Claude</b> <button id="histBtn" style="padding:0 8px;font-size:12px">이전 설명</button></div><div id="csay" class="mu">Claude 의 설명이 여기에 나옵니다.</div></div>
+  <div id="ask"><div id="selchip">화면의 상자·연결선·값·코드 줄을 누르면 그것에 대해 물을 수 있습니다.</div>
+    <div id="qrow"><textarea id="qtext" placeholder="궁금한 내용을 질문하세요. (Ctrl+Enter)"></textarea><button id="qsend">질문</button></div></div>
+</div>
+
+<div id="tabs">
+  <button data-d="code">소스코드</button><button data-d="tree">프로젝트 구조</button><button data-d="params">파라미터<span class="cnt" id="cnt-tr"></span></button><button data-d="log">실행 로그<span class="cnt" id="cnt-log"></span></button><button data-d="hist">이전 설명<span class="cnt" id="cnt-h"></span></button>
+</div>
+<div id="drawer"><div id="dhandle"></div><div id="dbody">
+  <div class="dsec" id="d-code"><div id="dcode"><div id="dfiles"></div><div><div class="ptitle" id="dcodeh"></div><div id="dcodeb" class="mu">파일을 고르세요.</div></div></div></div>
+  <div class="dsec" id="d-tree"><div id="treeb"></div></div>
+  <div class="dsec" id="d-params"><div class="tr" id="tracebtns"></div><div id="params" class="mu">서비스에 요청이 들어오면 입력값 → 함수 인자 → 반환값 → 저장 → 응답이 순서대로 쌓입니다. 값을 누르면 같은 값이 쓰인 곳을 추적합니다.</div></div>
+  <div class="dsec" id="d-log"><div class="tr"><button data-l="rt" class="on">실행</button><button data-l="dev">개발</button></div><div id="log-rt"></div><div id="log-dev" style="display:none"></div></div>
+  <div class="dsec" id="d-hist"><div id="histb" class="mu">아직 설명이 없습니다.</div></div>
+</div></div>
+
 <script>
 const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const j=(u,o)=>fetch(u,o).then(r=>r.json());
 const post=(u,b)=>j(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
-let S={mode:'running',speed:1}, skip=false, fresh=new Set(), curFile=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let S={mode:'running',speed:1},CTX={},ARCH={nodes:{},links:[]},SEL=null,skip=false,AUTO=true,STEP='';
+const TR={},TRORDER=[];let curTrace=null;
 
-/* ---------- 제어 ---------- */
-const pause=r=>post('/pause',{reason:r||'화면에서 일시정지'}), resume=()=>post('/resume');
-$('bp').onclick=()=>pause(); $('br').onclick=resume; $('bn').onclick=()=>{skip=true};
+/* ===== 무대: 상황에 따라 두 칸에 무엇을 둘지 ===== */
+const LAYOUT={service:['pService','pFlow'],arch:['pFlow','pService'],code:['pCode','pFlow'],func:['pParams','pFlow'],data:['pParams','pFlow'],error:['pError','pCode']};
+let view='';
+function show(mode,force){if(!force&&!AUTO)return;const [a,b]=LAYOUT[mode]||LAYOUT.service;if(view===mode)return;view=mode;
+  let flowMoved=false;
+  for(const [slot,id] of [['slotA',a],['slotB',b]]){const s=$(slot),p=$(id);if(s.firstElementChild!==p){[...s.children].forEach(c=>$('parking').appendChild(c));s.appendChild(p);p.classList.remove('fade');void p.offsetWidth;p.classList.add('fade');if(id==='pFlow')flowMoved=true}}
+  if(flowMoved)requestAnimationFrame(drawFlow)}   // 같은 자리에 그대로 있으면 다시 그리지 않는다(움직이는 값·강조 유지)
+function setAuto(on){AUTO=on;$('autoBtn').classList.toggle('off',!on);$('autoBtn').textContent=on?'자동 화면 전환':'자동 전환 꺼짐 · 다시 켜기';if(on){view='';show('service')}}
+$('autoBtn').onclick=()=>setAuto(!AUTO);
+function manual(){if(AUTO)setAuto(false)}
+/* 칸 크기 조절 */
+$('gutter').onmousedown=e=>{e.preventDefault();manual();const r=$('stage').getBoundingClientRect();const mv=ev=>{const p=Math.min(80,Math.max(25,(ev.clientX-r.left-22)/(r.width-44)*100));document.documentElement.style.setProperty('--split',p+'%');drawFlow()};const up=()=>{removeEventListener('mousemove',mv);removeEventListener('mouseup',up)};addEventListener('mousemove',mv);addEventListener('mouseup',up)};
+$('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
+
+/* ===== 제어 ===== */
+const pause=r=>post('/pause',{reason:r||'화면에서 일시정지'}),resume=()=>post('/resume');
+$('bp').onclick=()=>pause();$('br').onclick=resume;$('bn').onclick=()=>{skip=true};
 $('sp').oninput=e=>{$('spv').textContent=e.target.value;S.speed=+e.target.value;post('/speed',{speed:+e.target.value})};
 document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT')return;
+  if(['INPUT','TEXTAREA'].includes(e.target.tagName)){if(e.target.id==='qtext'&&e.key==='Enter'&&e.ctrlKey){e.preventDefault();ask()}return}
   if(e.code==='Space'){e.preventDefault();S.mode==='running'?pause('Space 키'):resume()}
-  else if(e.code==='ArrowRight'){skip=true}
-  else if(S.mode==='running'){pause('화면에서 키 입력')}          // 그 밖의 키 = 사용자 개입
+  else if(e.code==='ArrowRight')skip=true;
+  else if(e.key==='Escape')closeDrawer();
+  else if(S.mode==='running')pause('화면에서 키 입력');
 });
-$('stageb').addEventListener('mousedown',()=>{if(S.mode==='running')pause('강의 무대 클릭')});
-async function refresh(){S=await j('/state');const b=$('badge');b.textContent=S.mode==='running'?'진행 중':'일시정지';b.className=S.mode==='running'?'':'paused';$('why').textContent=S.mode==='paused'?S.reason:'';$('sp').value=S.speed;$('spv').textContent=S.speed}
+async function refresh(){S=await j('/state');const b=$('badge');b.textContent={running:'자동 진행',paused:'일시정지',tutoring:'과외 중'}[S.mode]||S.mode;b.className=S.mode==='running'?'':S.mode;$('why').textContent=S.mode!=='running'?S.reason:'';$('sp').value=S.speed;$('spv').textContent=S.speed}
 
-/* ---------- 구문 강조 ---------- */
-const RX=/(#[^\n]*|\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`[^`]*`)|\b(def|class|return|import|from|if|elif|else|for|while|in|not|and|or|try|except|finally|with|as|lambda|None|True|False|const|let|var|function|async|await|new|export|default|this|null|true|false|print|raise|pass|yield)\b|\b(\d+(?:\.\d+)?)\b/g;
+/* ===== 선택 → 질문 ===== */
+function select(sel,el){document.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));SEL=sel;if(el)el.classList.add('sel');
+  $('selchip').innerHTML=sel?`선택한 것: <b>${esc(sel.label)}</b> <span class="mu">(${esc(sel.type)})</span> <a href="#" id="unsel" style="color:var(--mu)">해제</a>`:'화면의 상자·연결선·값·코드 줄을 누르면 그것에 대해 물을 수 있습니다.';
+  const u=$('unsel');if(u)u.onclick=ev=>{ev.preventDefault();select(null)}}
+$('qtext').addEventListener('focus',()=>{if(S.mode==='running')pause('질문 작성 중')});
+async function ask(){const t=$('qtext').value.trim();if(!t)return;await post('/ask',{text:t,selected:SEL});$('qtext').value='';refresh()}
+$('qsend').onclick=ask;
+
+/* ===== 목적 ===== */
+let detailPinned=false,detailT=null,LASTPROB=null;
+$('pmore').onclick=()=>{detailPinned=!$('pdetail').classList.contains('open');$('pdetail').classList.toggle('open',detailPinned);$('pmore').textContent=detailPinned?'접기 ▴':'자세히 ▾'};
+function peekDetail(){if(detailPinned)return;$('pdetail').classList.add('open');clearTimeout(detailT);detailT=setTimeout(()=>{if(!detailPinned)$('pdetail').classList.remove('open')},9000/S.speed)}
+function drawCtx(c,hot){CTX=c||{};
+  const goal=c.goal?c.goal.text:'',feat=c.feature?c.feature.text:'',prob=c.verify?null:(LASTPROB&&[...(c.problems||[]),...(c.limits||[])].includes(LASTPROB)?LASTPROB:((c.limits||[]).slice(-1)[0]||(c.problems||[]).slice(-1)[0]));
+  $('pstep').textContent=goal?`${STEP?STEP+' — ':''}${goal}`:(c.service||'목적이 정해지면 개발을 시작합니다');
+  const title=prob?prob:(feat||goal||'—');const sub=c.verify?(c.decision?'선택: '+c.decision.text:''):c.decision?`${c.decision.text}${c.decision.why?' — '+c.decision.why:''}`:(prob&&feat?'현재 기능: '+feat:(c.service&&goal?'서비스: '+c.service:''));
+  if($('ptitle').textContent!==title){$('ptitle').textContent=title;$('ptitle').classList.remove('fade');void $('ptitle').offsetWidth;$('ptitle').classList.add('fade')}
+  $('psub').textContent=sub;
+  $('pverify').textContent=c.verify?(c.verify.result==='pass'?'✓ 목적 달성':'✗ 아직 미달성'):'';$('pverify').className=c.verify?c.verify.result:'';
+  const pr=[...(c.problems||[]).map(t=>'문제: '+t),...(c.limits||[]).map(t=>'한계: '+t),...(c.experiments||[]).map(x=>(x.kind==='real'?'실제 재현: ':'비교 실험: ')+x.text)];
+  $('d-problem').innerHTML=pr.length?'<ul>'+pr.map(t=>`<li>${esc(t)}</li>`).join('')+'</ul>':'—';
+  const op=c.options||[];$('d-option').innerHTML=op.length?'<ul>'+op.map(o=>`<li>${esc(o.text)}${o.pro?` <span class="pro">+${esc(o.pro)}</span>`:''}${o.con?` <span class="con">−${esc(o.con)}</span>`:''}</li>`).join('')+'</ul>':'—';
+  $('d-decide').innerHTML=c.decision?`<b>${esc(c.decision.text)}</b><div>${esc(c.decision.why||'')}</div>`:'—';
+  $('d-success').innerHTML=(c.success?`<b>${esc(c.success)}</b>`:'')+(c.verify?`<div class="${c.verify.result==='pass'?'pro':'con'}">${c.verify.result==='pass'?'달성':'미달성'}: ${esc(c.verify.text)}</div>`:'')||'—';
+  if(['option','decide','success','verify','experiment'].includes(hot))peekDetail();
+}
+
+/* ===== 흐름도 ===== */
+const NW=230,NH=74,VG=78,HG=34;let POS={};
+function layout(){const ns=Object.keys(ARCH.nodes),Lv={};ns.forEach(n=>Lv[n]=0);
+  for(let i=0;i<ns.length;i++)ARCH.links.forEach(l=>{if(Lv[l.from]!==undefined&&Lv[l.to]!==undefined&&l.from!==l.to&&Lv[l.to]<Lv[l.from]+1&&Lv[l.from]+1<ns.length)Lv[l.to]=Lv[l.from]+1});
+  const rows={};ns.sort((a,b)=>(ARCH.nodes[a].added||0)-(ARCH.nodes[b].added||0)).forEach(n=>(rows[Lv[n]]=rows[Lv[n]]||[]).push(n));return rows}
+const fit=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
+function drawFlow(){const box=$('flowbox');if(!box.isConnected||!box.clientWidth)return;const svg=$('svg'),W=box.clientWidth,rows=layout(),ks=Object.keys(rows).map(Number).sort((a,b)=>a-b);POS={};
+  const H=Math.max(box.clientHeight,ks.length*(NH+VG));const top=Math.max(10,(H-(ks.length*NH+(ks.length-1)*VG))/2);
+  ks.forEach((k,ri)=>{const r=rows[k],tw=r.length*NW+(r.length-1)*HG;r.forEach((n,i)=>POS[n]={x:Math.max(6,(W-tw)/2)+i*(NW+HG),y:top+ri*(NH+VG)})});
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  let h='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0L10,5L0,10z" fill="#5d7fbf"/></marker></defs>';
+  ARCH.links.forEach((l,i)=>{const a=POS[l.from],b=POS[l.to];if(!a||!b)return;const x1=a.x+NW/2,y1=a.y+NH,x2=b.x+NW/2,y2=b.y;const up=y2<=y1;
+    const d=up?`M${a.x+NW},${a.y+NH/2} C${a.x+NW+70},${a.y+NH/2} ${b.x+NW+70},${b.y+NH/2} ${b.x+NW},${b.y+NH/2}`:`M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2-2}`;
+    h+=`<g class="edge" id="e-${esc(l.from)}-${esc(l.to)}" data-i="${i}"><path d="${d}" marker-end="url(#ar)"/><text x="${(x1+x2)/2+14}" y="${up?(a.y+b.y)/2+NH/2:(y1+y2)/2+5}">${esc(l.data||'')}</text></g>`});
+  for(const [id,n] of Object.entries(ARCH.nodes)){const p=POS[id];if(!p)continue;
+    h+=`<g class="node${Date.now()/1000-(n.added||0)<8?' new':''}" id="n-${esc(id)}" data-id="${esc(id)}"><rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="12"/><text class="t1" x="${p.x+NW/2}" y="${p.y+32}" text-anchor="middle">${esc(fit(n.label||id,14))}</text><text class="t2" x="${p.x+NW/2}" y="${p.y+55}" text-anchor="middle">${esc(fit(n.role||'',15))}</text><title>${esc((n.label||id)+' — '+(n.role||''))}</title></g>`}
+  if(!Object.keys(ARCH.nodes).length)h+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8e97a8" font-size="15">구조는 기능이 필요해질 때 하나씩 생깁니다.</text>`;
+  svg.innerHTML=h;
+  svg.querySelectorAll('.node').forEach(g=>g.onclick=()=>{manual();const n=ARCH.nodes[g.dataset.id];select({type:'구성 요소',id:g.dataset.id,label:n.label,role:n.role,files:n.files},g);if((n.files||[]).length)openDrawer('code',n.files[0])});
+  svg.querySelectorAll('.edge').forEach(g=>g.onclick=()=>{manual();const l=ARCH.links[+g.dataset.i];select({type:'연결',label:`${ARCH.nodes[l.from]?.label||l.from} → ${ARCH.nodes[l.to]?.label||l.to}`,data:l.data},g)});
+  $('flowsub').textContent=Object.keys(ARCH.nodes).length?`구성 요소 ${Object.keys(ARCH.nodes).length}개`:'';
+}
+addEventListener('resize',()=>drawFlow());
+// 같은 파일을 여러 상자가 공유하면(예: 서버가 화면 HTML 도 만듦) 코드 실행은 서버 쪽 상자로 본다
+const nodeOfFile=f=>{if(!f)return;const m=Object.entries(ARCH.nodes).filter(([,n])=>(n.files||[]).some(x=>x===f||f.endsWith('/'+x)||x.endsWith('/'+f)));if(!m.length)return;const rank=k=>({server:0,service:1,ai:2,storage:3,db:3,external:4,client:9})[k]??5;m.sort((a,b)=>rank(a[1].kind)-rank(b[1].kind));return m[0][0]};
+const nodeOfKind=k=>Object.entries(ARCH.nodes).find(([,n])=>n.kind===k)?.[0];
+function nodesOf(e){const d=e.data||{};
+  if(e.type==='HTTP_REQUEST')return [nodeOfKind('client'),nodeOfKind('server')];
+  if(e.type==='HTTP_RESPONSE')return [nodeOfKind('server'),nodeOfKind('client')];
+  if(e.type==='HTTP_BODY')return [nodeOfKind('server')];
+  if(e.type==='CALL'||e.type==='RETURN')return [nodeOfFile(d.file)];
+  if(e.type==='DB_QUERY')return [nodeOfKind('db')];
+  if(e.type==='FILE_IO')return [nodeOfFile(d.path)||nodeOfKind('storage')||nodeOfKind('db')];
+  return []}
+let lastNode=null;
+function edgeEl(a,b){return $('e-'+a+'-'+b)||$('e-'+b+'-'+a)}
+function light(id){if(!id||!$('n-'+id))return;document.querySelectorAll('.node.active').forEach(x=>x.classList.remove('active'));$('n-'+id).classList.add('active');
+  if(lastNode&&lastNode!==id){const e=edgeEl(lastNode,id);if(e){e.classList.add('active');setTimeout(()=>e.classList.remove('active'),1500/S.speed)}}lastNode=id}
+function mark(id,cls){if(!id||!$('n-'+id))return;document.querySelectorAll('.node.'+cls).forEach(x=>x.classList.remove(cls));$('n-'+id).classList.add(cls)}
+/* 실제 관측값을 연결선을 따라 움직이는 칩 (관측된 이동에만) */
+async function flyChip(a,b,text){const e=edgeEl(a,b);if(!e||!text)return;const path=e.querySelector('path'),len=path.getTotalLength(),fwd=!!$('e-'+a+'-'+b);
+  const svg=$('svg'),g=document.createElementNS('http://www.w3.org/2000/svg','g');g.setAttribute('class','chip');
+  const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.textContent=text.length>30?text.slice(0,30)+'…':text;g.appendChild(t);svg.appendChild(g);
+  const bb=t.getBBox(),r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',bb.x-9);r.setAttribute('y',bb.y-5);r.setAttribute('width',bb.width+18);r.setAttribute('height',bb.height+10);r.setAttribute('rx',8);g.insertBefore(r,t);
+  e.classList.add('active');const dur=1100/S.speed,t0=performance.now();
+  await new Promise(res=>{const step=now=>{const k=Math.min(1,(now-t0)/dur);const p=path.getPointAtLength((fwd?k:1-k)*len);g.setAttribute('transform',`translate(${p.x+14-bb.x},${p.y-bb.y-bb.height/2})`);k<1?requestAnimationFrame(step):res()};requestAnimationFrame(step)});
+  await sleep(700/S.speed);g.style.transition='opacity .4s';g.style.opacity=0;e.classList.remove('active');setTimeout(()=>g.remove(),450)}
+function formObj(s){if(!/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(s||''))return null;const o={};for(const kv of s.split('&')){const [k,v='']=kv.split('=');try{o[decodeURIComponent(k.replace(/\+/g,' '))]=decodeURIComponent(v.replace(/\+/g,' '))}catch(_){o[k]=v}}return o}
+function readable(body){const f=formObj(body);return f?Object.entries(f).map(([k,v])=>`${k}=${v}`).join('&'):body}
+function summary(body){try{const o=JSON.parse(body);const v=Array.isArray(o)?[`${o.length}개`]:Object.values(o).filter(x=>typeof x!=='object').slice(0,3);return v.join(' · ')}catch(_){const f=formObj(body);return f?Object.values(f).slice(0,3).join(' · '):String(body||'').slice(0,24)}}
+
+/* ===== 파라미터 ===== */
+function rowText(e){const d=e.data||{};
+  switch(e.type){
+    case 'HTTP_REQUEST':return ['요청','req',`→ ${d.method} ${d.path}`];
+    case 'HTTP_BODY':return ['입력값','req',readable(d.body)];
+    case 'CALL':return ['함수 호출','',`${d.fn}(${Object.entries(d.args||{}).map(([k,v])=>`${k}=${v.value}`).join(', ')})`];
+    case 'RETURN':return ['반환','',`← ${d.fn} = ${d.value}`];
+    case 'DB_QUERY':return ['DB','db',d.sql];
+    case 'FILE_IO':return ['파일 '+d.mode,'db',d.path];
+    case 'HTTP_RESPONSE':return ['응답','req',`← ${d.status}  ${d.body||''}`];
+    case 'PROCESS_OUTPUT':return ['출력',e.status==='error'?'err':'',d.text];
+    case 'ERROR':return ['오류','err',d.traceback];
+  }return null}
+const RT=['HTTP_REQUEST','HTTP_BODY','CALL','RETURN','DB_QUERY','FILE_IO','HTTP_RESPONSE','ERROR'];
+function paramRows(t,limit,short){const evs=(TR[t]||[]).filter(e=>RT.includes(e.type));let calls=0;
+  return evs.map((e,i)=>{if((e.type==='CALL'||e.type==='RETURN')&&calls>limit)return'';if(e.type==='CALL')calls++;const r=rowText(e);const v=String(r?r[2]:'');return r?`<div class="pr ${r[1]}" data-e="${e.id}" ${short?`id="PR-${e.id}"`:''}><span class="k">${r[0]}</span>${esc(short&&v.length>170?v.slice(0,170)+' …':v)}</div>`:''}).join('')}
+function bindRows(el){el.querySelectorAll('.pr').forEach(r=>r.onclick=()=>{const e=(TR[curTrace]||[]).find(x=>x.id==+r.dataset.e);if(!e)return;const rt=rowText(e);manual();select({type:'파라미터·값',trace:curTrace,label:rt[0]+': '+String(rt[2]).slice(0,70),event:e.type,data:e.data},r);trackValue(String(rt[2]))})}
+function drawParams(){$('ptrace').textContent=curTrace?curTrace:'';const rq=(TR[curTrace]||[]).find(e=>e.type==='HTTP_REQUEST');if(rq)$('ptrace').textContent=`${curTrace} · ${rq.data.method} ${rq.data.path}`;
+  $('sparams').innerHTML=paramRows(curTrace,12,true);bindRows($('sparams'));
+  $('params').className='';$('params').innerHTML=paramRows(curTrace,60)||'<span class="mu">관측된 값이 없습니다.</span>';bindRows($('params'));
+  $('tracebtns').innerHTML=TRORDER.slice(-14).map(t=>{const r=TR[t].find(e=>e.type==='HTTP_REQUEST');return `<button data-t="${t}" class="${t===curTrace?'on':''}">${t} ${r?esc(r.data.method+' '+r.data.path):''}</button>`}).join('')+(TRORDER.length?' <button id="replay">▶ 다시 보기</button>':'');
+  $('tracebtns').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{curTrace=b.dataset.t;drawParams()});const rp=$('replay');if(rp)rp.onclick=()=>{closeDrawer();setAuto(true);enqueue({kind:'replay',trace:curTrace})};
+  $('cnt-tr').textContent=TRORDER.length?TRORDER.length:''}
+function trackValue(txt){const vals=(txt.match(/'[^']{2,40}'|"[^"]{2,40}"/g)||[]).map(v=>v.slice(1,-1)).filter(v=>!/^(utf-8|application)/.test(v));document.querySelectorAll('.pr').forEach(el=>el.classList.toggle('hit',vals.some(v=>el.textContent.includes(v))))}
+
+/* ===== 코드 ===== */
+const RX=/(#[^\n]*|\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`[^`]*`)|\b(def|class|return|import|from|if|elif|else|for|while|in|not|and|or|try|except|finally|with|as|lambda|None|True|False|const|let|var|function|async|await|new|export|default|this|null|true|false|print|raise|pass|yield|self)\b|\b(\d+(?:\.\d+)?)\b/g;
 function hl(line){let o='',i=0;line.replace(RX,(m,c,s,k,n,at)=>{o+=esc(line.slice(i,at))+`<span class="${c?'cm':s?'st':k?'kw':'nu'}">${esc(m)}</span>`;i=at+m.length});return o+esc(line.slice(i))||' '}
-const L=(t,cls)=>`<span class="l ${cls||''}">${hl(t)}</span>`;
-
-/* ---------- 기다리기: 일시정지면 멈추고, '다음 블록' 이면 건너뜀 ---------- */
-async function dwell(sec){
-  const total=sec*1000/S.speed;let left=total;skip=false;
-  while(left>0){if(skip){skip=false;break}await new Promise(r=>setTimeout(r,100));if(S.mode==='running')left-=100;$('bar').style.width=(100*(1-left/total))+'%'}
-  $('bar').style.width='0';
-}
-const blockSec=lines=>3+0.7*lines;      // 초보자가 읽을 시간(속도 1× 기준)
-function focusWin(){}   // 창을 앞으로 가져오는 일은 프로그램(app.py)이 PRESENT 를 보고 직접 한다
-function head(tag,text){$('stageh').innerHTML=`<span class="tag">${tag}</span> ${esc(text)}`}
-function scrollTo(sel){const e=$('stageb').querySelector(sel);if(e)e.scrollIntoView({block:'center',behavior:'smooth'})}
-
-/* 코드를 블록(빈 줄로 나뉜 덩어리) 단위로 하나씩 보여 준다 */
+const Ln=(t,cls,n)=>`<span class="l ${cls||''}" data-n="${n||''}">${hl(t)}</span>`;
+function head(el,tag,text){const f=CTX.feature,nid=nodeOfFile(text);$(el).innerHTML=`<b>${tag}</b> ${esc(text)}${nid?` <span style="color:var(--ac)">· ${esc(ARCH.nodes[nid].label)}</span>`:''}${f&&el==='codeh'?` <span class="mu">← 「${esc(f.text)}」 을 위해</span>`:''}`}
+function bindLines(box,path){box.querySelectorAll('.l').forEach(el=>el.onclick=()=>{const n=+el.dataset.n,nid=nodeOfFile(path);manual();select({type:'코드 줄',label:`${path}:${n}`,file:path,line:n,code:el.textContent,component:nid?ARCH.nodes[nid].label:null},el);if(nid)mark(nid,'changing')})}
+function fnRange(ls,line){let a=line-1,b=a;const ind=(ls[a]?.match(/^\s*/)||[''])[0].length;for(let i=a+1;i<ls.length;i++){if(ls[i].trim()&&(ls[i].match(/^\s*/)||[''])[0].length<=ind)break;b=i}while(b>a&&!ls[b].trim())b--;return [a,b]}
+async function focusCode(path,line,cls='run'){const f=await j('/file?path='+encodeURIComponent(path));if(f.error)return;const ls=f.text.split('\n');const [a,b]=line?fnRange(ls,line):[0,-1];
+  const s=Math.max(0,a-3),e=Math.min(ls.length-1,b+3);head('codeh',line?'실행 중':'코드',path);
+  $('codeb').innerHTML=`<pre class="code" style="counter-reset:ln ${s}">${ls.slice(s,e+1).map((l,i)=>Ln(l,s+i>=a&&s+i<=b?cls:'dim',s+i+1)).join('')}</pre><p class="mu" style="font-size:12.5px">관련 부분만 보여 줍니다 · 전체는 아래 ‘소스코드’</p>`;bindLines($('codeb'),path)}
+async function dwell(sec){const total=sec*1000/S.speed;let left=total;skip=false;
+  while(left>0){if(skip){skip=false;break}await sleep(100);if(S.mode!=='paused')left-=100;$('bar').style.width=(100*(1-left/total))+'%'}$('bar').style.width='0'}
 function blocksOf(text){const ls=text.replace(/\r/g,'').split('\n');const bs=[];let cur=[];for(const l of ls){cur.push(l);if(l.trim()===''&&cur.some(x=>x.trim())){bs.push(cur);cur=[]}}if(cur.length)bs.push(cur);return bs}
-async function presentWrite(d){
-  head(d.new_file?'새 파일':'파일 다시 쓰기',d.path);
-  const bs=blocksOf(d.content), before=new Set((d.before||'').split('\n'));
-  for(let i=0;i<bs.length;i++){
-    let h='';bs.forEach((b,k)=>{if(k>i)return;b.forEach(l=>{h+=L(l,k===i?(d.new_file||!before.has(l)?'cur':'cur'):(d.new_file||before.has(l)?'':'add'))})});
-    $('stageb').innerHTML=`<pre>${h}</pre><p class="mu">블록 ${i+1} / ${bs.length}</p>`;scrollTo('.l.cur');
-    await dwell(blockSec(bs[i].filter(x=>x.trim()).length));
-  }
-}
-async function presentEdit(d){
-  head('코드 수정',d.path);
-  let text='';try{text=(await j('/file?path='+encodeURIComponent(d.path))).text||''}catch(e){}
-  for(const [n,e] of d.edits.entries()){
-    const at=text.indexOf(e.old_string);
-    const pre=at<0?'':text.slice(0,at), post=at<0?'':text.slice(at+e.old_string.length);
-    const ctx=(s,last)=>{const ls=s.split('\n');return last?ls.slice(-6):ls.slice(0,6)};
-    const oldL=e.old_string.split('\n'),newL=e.new_string.split('\n');
-    const show=mid=>`<pre>${ctx(pre,1).map(l=>L(l,'dim')).join('')}${mid}${ctx(post,0).map(l=>L(l,'dim')).join('')}</pre><p class="mu">수정 ${n+1} / ${d.edits.length}</p>`;
-    $('stageb').innerHTML=show(oldL.map(l=>L(l,'del')).join(''));scrollTo('.l.del');await dwell(2+0.3*oldL.length);
-    $('stageb').innerHTML=show(newL.map(l=>L(l,'add')).join(''));scrollTo('.l.add');await dwell(blockSec(newL.length));
-    if(at>=0)text=pre+e.new_string+post;
-  }
-}
-async function presentCommand(d){
-  head('명령 실행',d.cwd||'');
-  $('stageb').innerHTML=`${d.description?`<p>${esc(d.description)}</p>`:''}<div class="cmdbig"><span class="p">$</span> ${esc(d.command)}</div><p class="mu">이 명령을 실행합니다. 결과는 오른쪽 터미널에 실제 출력 그대로 나옵니다.</p>`;
-  await dwell(3+0.02*d.command.length);
-}
-const queue=[];let busy=false;
-async function pump(){if(busy)return;busy=true;while(queue.length){const e=queue.shift();focusWin();const d=e.data;
-  try{if(d.kind==='write')await presentWrite(d);else if(d.kind==='edit')await presentEdit(d);else if(d.kind==='command')await presentCommand(d)}catch(err){console.error(err)}
-  await post('/ack',{id:e.id})}busy=false}
+async function presentWrite(d){show('code');head('codeh',d.new_file?'새 파일':'파일 다시 쓰기',d.path);mark(nodeOfFile(d.path),'changing');
+  const bs=blocksOf(d.content);for(let i=0;i<bs.length;i++){let h='',n=0;bs.forEach((b,k)=>{if(k>i)return;b.forEach(l=>{h+=Ln(l,k===i?'cur':'',++n)})});
+    $('codeb').innerHTML=`<pre class="code">${h}</pre>`;const c=$('codeb').querySelector('.l.cur');if(c)c.scrollIntoView({block:'center',behavior:'smooth'});
+    await dwell(Math.min(8,1.8+0.25*bs[i].filter(x=>x.trim()).length))}}
+async function presentEdit(d){show('code');head('codeh','코드 수정',d.path);mark(nodeOfFile(d.path),'changing');let text='';try{text=(await j('/file?path='+encodeURIComponent(d.path))).text||''}catch(e){}
+  for(const e of d.edits){const at=text.indexOf(e.old_string),pre=at<0?'':text.slice(0,at),post=at<0?'':text.slice(at+e.old_string.length);
+    const cx=(s,last)=>{const ls=s.split('\n');return last?ls.slice(-4):ls.slice(0,4)};const oldL=e.old_string.split('\n'),newL=e.new_string.split('\n');
+    const view_=mid=>`<pre class="code">${cx(pre,1).map(l=>Ln(l,'dim')).join('')}${mid}${cx(post,0).map(l=>Ln(l,'dim')).join('')}</pre>`;
+    $('codeb').innerHTML=view_(oldL.map(l=>Ln(l,'del')).join(''));await dwell(1.5+0.15*oldL.length);
+    $('codeb').innerHTML=view_(newL.map(l=>Ln(l,'add')).join(''));const c=$('codeb').querySelector('.l.add');if(c)c.scrollIntoView({block:'center',behavior:'smooth'});await dwell(Math.min(9,2+0.3*newL.length));if(at>=0)text=pre+e.new_string+post}}
+async function presentCommand(d){const big=/run\.py\s+(start|once)/.test(d.command);if(big)show('service');else if(view!=='code')show(view||'service');
+  if(view==='code'){head('codeh','명령 실행','');$('codeb').innerHTML=`${d.description?`<p>${esc(d.description)}</p>`:''}<div class="cmdbig"><span style="color:var(--ac)">$</span> ${esc(d.command)}</div>`}
+  await dwell(big?2:1.2)}
 
-/* ---------- 탐색기 ---------- */
-async function drawTree(){const t=await j('/tree');
-  $('treeb').innerHTML=t.length?t.map(x=>`<div class="f ${x.dir?'dir':''} ${fresh.has(x.path)?'new':''} ${curFile===x.path?'sel':''}" style="padding-left:${4+10*(x.path.split('/').length-1)}px">${x.dir?'▸ ':''}${esc(x.path.split('/').pop())}</div>`).join(''):'<span class="mu">비어 있음</span>'}
-async function showSaved(path){if(busy||queue.length)return;const f=await j('/file?path='+encodeURIComponent(path));if(f.error)return;curFile=path;head('저장됨 ✓',path);$('stageb').innerHTML=`<pre>${f.text.split('\n').map(l=>L(l)).join('')}</pre><p class="mu">디스크에 실제로 저장된 내용입니다.</p>`;drawTree()}
+/* ===== 무대 큐 ===== */
+const Q=[];let busy=false;
+function enqueue(x){Q.push(x);pump()}
+async function pump(){if(busy)return;busy=true;while(Q.length){const x=Q.shift();
+  try{if(x.kind==='present'){const d=x.e.data;if(d.kind==='write')await presentWrite(d);else if(d.kind==='edit')await presentEdit(d);else if(d.kind==='command')await presentCommand(d);await post('/ack',{id:x.e.id})}
+      else if(x.kind==='replay')await replay(x.trace)}catch(err){console.error(err);if(x.kind==='present')await post('/ack',{id:x.e.id})}}busy=false;if(AUTO&&view==='code')show('service')}
+let REPLAYING=false;
+async function replay(t){REPLAYING=true;try{await replay_(t)}finally{REPLAYING=false}}
+async function replay_(t){curTrace=t;drawParams();lastNode=null;show('service');await sleep(250);
+  const evs=(TR[t]||[]).filter(e=>RT.includes(e.type));let calls=0;
+  for(const e of evs){if((e.type==='CALL'||e.type==='RETURN')&&calls>12)continue;if(e.type==='CALL')calls++;
+    const ns=nodesOf(e).filter(Boolean);const d=e.data||{};
+    if(e.type==='CALL'||e.type==='RETURN'){show('func')}else if(e.type==='DB_QUERY'||e.type==='FILE_IO'){show('data')}else if(e.type==='ERROR'){showError(e);continue}
+    document.querySelectorAll('.pr.cur').forEach(x=>x.classList.remove('cur'));const row=$('PR-'+e.id);if(row){row.classList.add('cur');row.scrollIntoView({block:'nearest',behavior:'smooth'})}
+    if(e.type==='HTTP_BODY'){const c=nodeOfKind('client'),s=nodeOfKind('server');await flyChip(c,s,summary(d.body));light(s);continue}
+    if(e.type==='HTTP_RESPONSE'){show('service');const c=nodeOfKind('client'),s=nodeOfKind('server');light(s);await flyChip(s,c,`${d.status} ${summary(d.body)}`.trim());light(c);await dwell(0.8);continue}
+    if((e.type==='DB_QUERY'||e.type==='FILE_IO')&&ns[0]){if(lastNode&&lastNode!==ns[0]&&edgeEl(lastNode,ns[0]))await flyChip(lastNode,ns[0],e.type==='FILE_IO'?`${d.mode}: ${d.path}`:d.sql.split(' ').slice(0,2).join(' '));light(ns[0]);await dwell(0.8);continue}
+    for(const n of ns)light(n);
+    if(e.type==='CALL'&&d.file)await focusCode(d.file,d.line);
+    await dwell(e.type==='CALL'?1.2:0.7)}
+  await sleep(600);document.querySelectorAll('.node.active').forEach(x=>x.classList.remove('active'))}
+function showError(e){const d=e.data||{},tb=d.traceback||d.text||'';const m=[...tb.matchAll(/File "([^"]+)", line (\d+)/g)].filter(x=>!/harness|lib[\\/]|Python3/i.test(x[1])).pop();
+  $('errbox').innerHTML=`<pre>${esc(tb.slice(-1600))}</pre>`;if(m){const f=m[1].replace(/\\/g,'/').split('/workspace/').pop();$('errwhere').textContent=`${f}:${m[2]}`;focusCode(f,+m[2],'errl')}
+  show('error')}
 
-/* ---------- 이벤트 ---------- */
-function term(h){$('termb').insertAdjacentHTML('beforeend',h);$('termb').parentElement.scrollTop=1e9}
-function on(e){
-  const d=e.data||{};
-  $('tl').textContent=`#${e.id} ${e.type} ${d.path||d.command||d.reason||d.why||''}`;
-  if(e.type==='PRESENT'){if(!(e.backlog&&e.acked)){queue.push(e);pump()}}
-  if(e.type==='STEP_STARTED')$('step').textContent='단계 '+e.step+(d.title?' · '+d.title:'');
-  if(e.type==='EXPLAIN'){$('sayb').querySelectorAll('.say').forEach(x=>x.classList.remove('last'));$('sayb').insertAdjacentHTML('beforeend',`<div class="say last">${esc(d.text)}</div>`);$('sayb').scrollTop=1e9}
-  if(e.type==='RUN_COMMAND')term(`<span class="cmd">$ ${esc(d.command)}</span>\n`);
-  if(e.type==='COMMAND_OUTPUT')term(esc(d.stdout||'')+(d.stderr?`<span class="err">${esc(d.stderr)}</span>`:'')+`\n<span class="${e.status==='ok'?'okc':'err'}">[${e.status==='ok'?'끝남':'오류'}]</span>\n\n`);
-  if(e.type==='BLOCKED'||e.type==='WAITING')term(`<span class="err">[${e.type==='BLOCKED'?'막힘':'대기'}] ${esc(d.why||'')}</span>\n`);
-  if(['CREATE_FILE','WRITE_CODE','MODIFY_CODE'].includes(e.type)&&d.path)fresh.add(d.path);
-  if(e.type==='VALIDATE'&&d.path&&d.exists){drawTree();if(!e.backlog)setTimeout(()=>showSaved(d.path),300);setTimeout(()=>{fresh.delete(d.path);drawTree()},5000)}
-  if(e.type==='PAUSE'||e.type==='RESUME')refresh();
+/* ===== 서랍 ===== */
+let drawerTab=null;
+function openDrawer(t,file){drawerTab=t;$('drawer').classList.add('open');document.querySelectorAll('.dsec').forEach(s=>s.classList.toggle('on',s.id==='d-'+t));document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.d===t));
+  if(t==='code'){drawFiles();if(file)openFile(file)}if(t==='tree')drawTree();if(t==='params')drawParams()}
+function closeDrawer(){drawerTab=null;$('drawer').classList.remove('open');document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('on'))}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>drawerTab===b.dataset.d?closeDrawer():openDrawer(b.dataset.d));
+$('dhandle').onmousedown=e=>{e.preventDefault();const mv=ev=>document.documentElement.style.setProperty('--drawer',Math.min(innerHeight-120,Math.max(140,innerHeight-ev.clientY-38))+'px');const up=()=>{removeEventListener('mousemove',mv);removeEventListener('mouseup',up)};addEventListener('mousemove',mv);addEventListener('mouseup',up)};
+document.querySelectorAll('#d-log .tr button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#d-log .tr button').forEach(x=>x.classList.toggle('on',x===b));$('log-rt').style.display=b.dataset.l==='rt'?'':'none';$('log-dev').style.display=b.dataset.l==='dev'?'':'none'});
+const fresh=new Set();
+async function drawTree(){const t=await j('/tree');const html=t.length?t.map(x=>{const nid=x.dir?null:nodeOfFile(x.path);return `<div class="f ${x.dir?'dir':''} ${fresh.has(x.path)?'new':''}" data-p="${esc(x.path)}" style="padding-left:${6+14*(x.path.split('/').length-1)}px">${x.dir?'▸ ':''}${esc(x.path.split('/').pop())}${nid?`<span class="role">${esc(ARCH.nodes[nid].label)} · ${esc(ARCH.nodes[nid].role||'')}</span>`:''}</div>`}).join(''):'<span class="mu">비어 있음</span>';
+  $('treeb').innerHTML=html;$('treeb').querySelectorAll('.f:not(.dir)').forEach(el=>el.onclick=()=>openDrawer('code',el.dataset.p))}
+async function drawFiles(){const t=await j('/tree');$('dfiles').innerHTML=t.filter(x=>!x.dir).map(x=>`<div class="f" data-p="${esc(x.path)}">${esc(x.path)}</div>`).join('')||'<span class="mu">파일 없음</span>';$('dfiles').querySelectorAll('.f').forEach(el=>el.onclick=()=>openFile(el.dataset.p))}
+async function openFile(p){const f=await j('/file?path='+encodeURIComponent(p));if(f.error)return;head('dcodeh','파일',p);$('dcodeb').className='';$('dcodeb').innerHTML=`<pre class="code">${f.text.split('\n').map((l,i)=>Ln(l,'',i+1)).join('')}</pre>`;bindLines($('dcodeb'),p);const nid=nodeOfFile(p);select({type:'파일',label:p,component:nid?ARCH.nodes[nid].label:null})}
+let nlog=0;
+function logRow(box,cls,tag,text,e){const el=document.createElement('div');el.className='lg '+cls;el.innerHTML=`<span class="tg">${esc(tag)}${e.data&&e.data.trace?' '+e.data.trace:''}</span>${esc(String(text).slice(0,600))}<div class="det">${esc(JSON.stringify(e.data,null,1)).slice(0,3000)}</div>`;
+  el.onclick=()=>{el.classList.toggle('open');select({type:'로그',label:tag+' '+String(text).slice(0,60),event:e.type,data:e.data},el);if(e.data&&e.data.trace&&TR[e.data.trace]){curTrace=e.data.trace;drawParams()}};
+  box.appendChild(el);while(box.children.length>600)box.firstChild.remove();if(drawerTab==='log')$('dbody').scrollTop=1e9;$('cnt-log').textContent=++nlog}
+function onLog(e){const d=e.data||{};const r=rowText(e);if(r&&e.type!=='CALL'&&e.type!=='RETURN')logRow($('log-rt'),e.status==='error'?'err':r[1],r[0],r[2],e);
+  if(e.type==='APP_URL')logRow($('log-rt'),'ok2','서비스 시작',d.url,e);if(e.type==='PROCESS_EXIT')logRow($('log-rt'),e.status==='error'?'err':'','프로세스 종료','종료 코드 '+(d.code??'?'),e);
+  const dev={PRESENT:['화면 표시',d.path||d.command],CREATE_FILE:['파일 생성',d.path],WRITE_CODE:['파일 다시 씀',d.path],MODIFY_CODE:['코드 수정',d.path],RUN_COMMAND:['명령',d.command],COMMAND_OUTPUT:['명령 출력',(d.stdout||'')+(d.stderr?'\n'+d.stderr:'')],
+    VALIDATE:['검증',`${d.what}: ${d.content_ok===false?'불일치':'일치'} ${d.path}`],FILES_CHANGED_BY_COMMAND:['명령이 바꾼 파일',[...(d.added||[]),...(d.changed||[])].join(', ')+(d.code_touched&&d.code_touched.length?'  ⚠ '+d.why:'')],
+    BLOCKED:['막힘',d.why],WAITING:['대기',d.why],CONTEXT:['문맥 '+d.kind,d.text],ARCH:['구조 '+d.op,[d.id,d.label,d.from,d.to,d.data].filter(Boolean).join(' ')],QUESTION:['질문 '+d.id,d.text],QUESTION_DELIVERED:['질문 전달',d.id],EXPLAIN:['설명',d.text]}[e.type];
+  if(dev)logRow($('log-dev'),e.status==='error'?'err':(e.type==='VALIDATE'?'ok2':''),dev[0],dev[1]||'',e)}
+
+/* ===== Claude ===== */
+let nh=0;
+function say(text,q,ts){$('csay').textContent=(q?'🙋 질문: ':'')+text;$('csay').className=q?'q fade':'fade';
+  if(nh===0)$('histb').innerHTML='';$('histb').insertAdjacentHTML('beforeend',`<div class="hist ${q?'q':''}"><small>${new Date((ts||Date.now()/1000)*1000).toLocaleTimeString()}</small>${q?'🙋 ':''}${esc(text)}</div>`);$('cnt-h').textContent=++nh}
+$('histBtn').onclick=()=>openDrawer('hist');
+
+/* ===== 실제 서비스 ===== */
+let reloadT=null;
+function setApp(url){$('app').src=url;$('appwrap').style.display='';$('appph').style.display='none';$('appurl').textContent=url}
+function appGone(){$('appwrap').style.display='none';$('appph').style.display='';$('appph').textContent='서비스가 종료되었습니다.';$('appurl').textContent=''}
+
+/* ===== 이벤트 ===== */
+function on(e){const d=e.data||{};
+  if(d.trace){if(!TR[d.trace]){TR[d.trace]=[];TRORDER.push(d.trace)}TR[d.trace].push(e);
+    if(e.type==='HTTP_RESPONSE'&&!e.backlog){if(!REPLAYING&&!Q.some(x=>x.kind==='replay'))curTrace=d.trace;drawParams();const rq=TR[d.trace].find(x=>x.type==='HTTP_REQUEST');
+      const asset=/text\/html|javascript|css|image|icon/.test(d.content_type||'');if(!asset)enqueue({kind:'replay',trace:d.trace});
+      if(rq&&rq.data.method!=='GET'&&d.status<400&&document.activeElement!==$('app')){clearTimeout(reloadT);reloadT=setTimeout(()=>{try{$('app').contentWindow.location.reload()}catch(_){$('app').src=$('app').src}},700)}}}
+  onLog(e);
+  if(e.type==='PRESENT'&&!(e.backlog&&e.acked))enqueue({kind:'present',e});
+  if(e.type==='EXPLAIN')say(d.text,false,e.ts);
+  if(e.type==='QUESTION')say(d.text,true,e.ts);
+  if(e.type==='STEP_STARTED'){STEP=e.step;j('/context').then(c=>drawCtx(c))}
+  if(e.type==='CONTEXT'&&(d.kind==='limit'||d.kind==='problem'))LASTPROB=d.text;
+  if(e.type==='CONTEXT'&&!e.backlog)j('/context').then(c=>drawCtx(c,d.kind));
+  if(e.type==='ARCH'&&!e.backlog)j('/arch').then(a=>{ARCH=a;if(!busy)show('arch');drawFlow();if(d.id)mark(d.id,'new');setTimeout(()=>{if(!busy&&AUTO&&view==='arch')show('service')},6000/S.speed)});
+  if(e.type==='APP_URL'){setApp(d.url);if(!busy)show('service')}
+  if(e.type==='PROCESS_EXIT'&&!e.backlog&&$('appurl').textContent)appGone();
+  if((e.type==='ERROR'||(e.type==='PROCESS_OUTPUT'&&/Traceback|Error:/.test(d.text||'')))&&!e.backlog&&e.type==='ERROR')showError(e);
+  if(['CREATE_FILE','WRITE_CODE','MODIFY_CODE'].includes(e.type)&&d.path){fresh.add(d.path);setTimeout(()=>fresh.delete(d.path),6000)}
+  if(['PAUSE','RESUME','QUESTION'].includes(e.type))refresh();
 }
-refresh();drawTree();setInterval(refresh,2000);
+show('service',true);
+{const m=location.hash.match(/open=(\w+)/);if(m)setTimeout(()=>openDrawer(m[1]),800)}   // 확인·링크용: #open=log 등
+Promise.all([j('/context'),j('/arch')]).then(([c,a])=>{drawCtx(c);ARCH=a;drawFlow()});
+refresh();setInterval(refresh,2000);
 const es=new EventSource('/stream');es.onmessage=m=>on(JSON.parse(m.data));es.onerror=()=>{$('badge').textContent='연결 끊김';$('badge').className='off'};
 </script>
 </body>

@@ -17,10 +17,102 @@ PORT = int(os.environ.get("CS_STUDIO_PORT", "0"))   # 0 이면 운영체제가 �
 lock = threading.Lock()
 events = []
 subs = []
-state = {"mode": "running", "delay": 0.3, "speed": 1.0, "grace_until": 0.0, "reason": "", "step": "(없음)"}
+state = {"mode": "running", "delay": 0.3, "speed": 1.0, "grace_until": 0.0, "reason": "", "step": "(없음)", "question": None, "qseq": 0}
 seq = 0
 acks = set()                       # 화면이 다 보여 준 PRESENT 이벤트 id
 AUTO_ACK = os.environ.get("CS_AUTO_ACK") == "1"   # 시험용: 화면 없이 바로 확인 처리
+
+# ---------- 개발 문맥: 목적 → 기능 → (한계·문제) → 대안 → 선택 → 검증 ----------
+# 모든 이벤트에 그 순간의 목적·기능 id 를 붙여, 코드·명령·출력이 "무엇을 위해" 일어났는지 연결한다.
+def empty_feature_part():
+    return {"limits": [], "problems": [], "options": [], "decision": None, "experiments": [], "verify": None}
+
+
+ctx = {"service": "", "goal": None, "feature": None, "success": "", "seq": 0, "history": [], **empty_feature_part()}
+
+# ---------- 시스템 구조: Claude 가 선언한 구성 요소와 연결. 실행 중 강조는 실제 관측 이벤트로 ----------
+arch = {"nodes": {}, "links": []}
+
+
+def arch_save():
+    json.dump(arch, open(RUN / "arch.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
+
+def arch_apply(b):
+    op = b.get("op")
+    with lock:
+        if op == "node":
+            n = arch["nodes"].get(b["id"], {})
+            n.update({k: b[k] for k in ("label", "role", "kind", "files") if b.get(k) is not None})
+            n.setdefault("added", now())
+            arch["nodes"][b["id"]] = n
+        elif op == "link":
+            arch["links"] = [l for l in arch["links"] if not (l["from"] == b["from"] and l["to"] == b["to"])]
+            arch["links"].append({"from": b["from"], "to": b["to"], "data": b.get("data", "")})
+        elif op == "unlink":
+            arch["links"] = [l for l in arch["links"] if not (l["from"] == b["from"] and l["to"] == b["to"])]
+        elif op == "remove":
+            arch["nodes"].pop(b["id"], None)
+            arch["links"] = [l for l in arch["links"] if b["id"] not in (l["from"], l["to"])]
+        snap = json.loads(json.dumps(arch))
+    if op != "show":
+        arch_save()
+        add_event("ARCH", {k: v for k, v in b.items()})
+    return snap
+
+
+def ctx_save():
+    json.dump(ctx, open(RUN / "context.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
+
+def ctx_load():
+    p = RUN / "context.json"
+    if p.exists():
+        try:
+            ctx.update(json.load(open(p, encoding="utf-8")))
+        except Exception:
+            pass
+
+
+def ctx_apply(b):
+    """문맥 한 항목을 반영. 새 목적이면 기능 이하를, 새 기능이면 문제 이하를 비운다(지난 것은 history 에 남김)."""
+    k, text = b.get("kind"), (b.get("text") or "").strip()
+    with lock:
+        if k == "service":
+            ctx["service"] = text
+        elif k == "goal":
+            ctx["success"] = ""
+            if ctx["goal"]:
+                ctx["history"].append({"goal": ctx["goal"], "feature": ctx["feature"], "verify": ctx["verify"], "decision": ctx["decision"]})
+            ctx["seq"] += 1
+            ctx["goal"] = {"id": f"G{ctx['seq']}", "text": text}
+            ctx["feature"] = None
+            ctx.update(empty_feature_part())
+        elif k == "feature":
+            if ctx["feature"]:
+                ctx["history"].append({"goal": ctx["goal"], "feature": ctx["feature"], "verify": ctx["verify"], "decision": ctx["decision"]})
+            ctx["seq"] += 1
+            ctx["feature"] = {"id": f"F{ctx['seq']}", "text": text}
+            ctx.update(empty_feature_part())
+        elif k == "limit":
+            ctx["limits"].append(text)
+        elif k == "problem":
+            ctx["problems"].append(text)
+        elif k == "option":
+            ctx["options"].append({"text": text, "pro": b.get("pro", ""), "con": b.get("con", "")})
+        elif k == "decide":
+            ctx["decision"] = {"text": text, "why": b.get("why", "")}
+        elif k == "experiment":
+            ctx["experiments"].append({"text": text, "kind": b.get("exp_kind", "compare")})
+        elif k == "success":
+            ctx["success"] = text
+        elif k == "verify":
+            ctx["verify"] = {"result": b.get("result"), "text": text}
+        snap = json.loads(json.dumps(ctx))
+    if k != "show":
+        ctx_save()
+        add_event("CONTEXT", {"kind": k, "text": text, **{x: b[x] for x in ("pro", "con", "why", "exp_kind", "result") if b.get(x)}})
+    return snap
 
 
 def now():
@@ -36,7 +128,8 @@ def add_event(type_, data=None, step=None, status="ok"):
     global seq
     with lock:
         seq += 1
-        ev = {"id": seq, "ts": now(), "type": type_, "step": step or state["step"], "status": status, "data": data or {}}
+        ev = {"id": seq, "ts": now(), "type": type_, "step": step or state["step"], "status": status, "data": data or {},
+              "ctx": {"goal": (ctx["goal"] or {}).get("id"), "feature": (ctx["feature"] or {}).get("id")}}
         events.append(ev)
         with open(RUN / "events.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(ev, ensure_ascii=False) + "\n")
@@ -50,6 +143,8 @@ def add_event(type_, data=None, step=None, status="ok"):
 def set_mode(mode, reason=""):
     with lock:
         changed = state["mode"] != mode
+        if mode == "running":
+            state["question"] = None
         state["mode"] = mode
         state["reason"] = reason
         if mode == "running":
@@ -119,6 +214,12 @@ class H(BaseHTTPRequestHandler):
             i = int(q.get("id", ["0"])[0])
             with lock:
                 self._json({"acked": i in acks})
+        elif u.path == "/context":
+            with lock:
+                self._json(ctx)
+        elif u.path == "/arch":
+            with lock:
+                self._json(arch)
         elif u.path == "/tree":
             self._json(tree())
         elif u.path == "/file":
@@ -169,6 +270,30 @@ class H(BaseHTTPRequestHandler):
             with lock:
                 acks.add(int(b.get("id", 0)))
             self._json({"ok": True})
+        elif u.path == "/context":
+            self._json(ctx_apply(b))
+        elif u.path == "/arch":
+            self._json(arch_apply(b))
+        elif u.path == "/batch":                      # 실행 계측(cstrace)이 모아서 보내는 실제 실행 이벤트
+            ids = [add_event(e.get("type", "RUNTIME"), e.get("data"), None, e.get("status", "ok"))["id"] for e in (b.get("events") or [])]
+            self._json({"ids": ids})
+        elif u.path == "/ask":                        # Studio 에서 사용자가 질문 → 과외 모드
+            with lock:
+                state["qseq"] += 1
+                q = {"id": f"Q{state['qseq']}", "text": b.get("text", ""), "selected": b.get("selected"), "ts": now()}
+                state["question"] = q
+                state["mode"] = "tutoring"
+                state["reason"] = "질문 " + q["id"]
+            add_event("QUESTION", q)
+            save_state()
+            self._json(q)
+        elif u.path == "/question/take":              # hook 이 질문을 꺼내 Claude 에게 전달
+            with lock:
+                q = state["question"]
+                state["question"] = None
+            if q:
+                add_event("QUESTION_DELIVERED", {"id": q["id"]})
+            self._json({"question": q})
         elif u.path == "/pause":
             set_mode("paused", b.get("reason", "사용자"))
             self._json({"ok": True})
@@ -216,6 +341,17 @@ def input_watcher():
                 set_mode("paused", "사용자 입력 감지")
 
 
+def parent_watch(pid):
+    """Studio 창(app.py)이 꺼지면 서버도 끈다. 창 없는 서버가 남아 hook 이 엉뚱한 서버를 보지 않게."""
+    import ctypes
+    k = ctypes.windll.kernel32
+    h = k.OpenProcess(0x00100000, False, pid)   # SYNCHRONIZE
+    if not h:
+        os._exit(0)
+    k.WaitForSingleObject(h, 0xFFFFFFFF)
+    os._exit(0)
+
+
 def main():
     global PORT
     ap = argparse.ArgumentParser()
@@ -240,10 +376,18 @@ def main():
     PORT = srv.server_address[1]
     (RUN / "port.txt").write_text(str(PORT), encoding="utf-8")
     (RUN / "events.jsonl").write_text("", encoding="utf-8")
+    ctx_load()                     # 목적·기능 문맥은 세션이 바뀌어도 이어진다
+    if (RUN / "arch.json").exists():
+        try:
+            arch.update(json.load(open(RUN / "arch.json", encoding="utf-8")))
+        except Exception:
+            pass
     save_state()
     add_event("STUDIO_STARTED", {"port": PORT, "watch_input": a.watch_input})
     if a.watch_input:
         threading.Thread(target=input_watcher, daemon=True).start()
+    if os.environ.get("CS_PARENT_PID") and os.name == "nt":
+        threading.Thread(target=parent_watch, args=(int(os.environ["CS_PARENT_PID"]),), daemon=True).start()
     if a.open:
         webbrowser.open(f"http://127.0.0.1:{PORT}/")
     print(f"CS Studio http://127.0.0.1:{PORT}/", flush=True)
