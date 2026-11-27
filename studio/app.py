@@ -75,7 +75,8 @@ def front_watcher(port):
                 last = max(last, e["id"])
                 d = e.get("data") or {}
                 front = e["type"] in ("PRESENT", "ARCH", "APP_URL", "QUESTION", "ERROR", "STEP_STARTED") or (
-                    e["type"] == "HTTP_RESPONSE" and not any(x in (d.get("content_type") or "") for x in ("html", "javascript", "css", "image", "icon")))
+                    e["type"] == "HTTP_RESPONSE" and ((d.get("status") or 0) >= 400 or
+                                                   not any(x in (d.get("content_type") or "") for x in ("html", "javascript", "css", "image", "icon"))))
                 if front:
                     ok = bring_to_front()
                     urllib.request.urlopen(urllib.request.Request(

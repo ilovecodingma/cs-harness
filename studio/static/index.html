@@ -54,13 +54,26 @@ header .sp{margin-left:auto;display:flex;align-items:center;gap:8px}
 #flowbox{flex:1;min-height:0;position:relative}
 #svg{width:100%;height:100%;display:block}
 svg text{font-family:system-ui,"Malgun Gothic",sans-serif}
-.node rect{fill:var(--pn2);stroke:#3a4356;stroke-width:1.5;transition:fill .3s,stroke .3s}
-.node .t1{fill:var(--tx);font-size:19px;font-weight:700}.node .t2{fill:var(--mu);font-size:14px}
-.node.active rect{fill:var(--okbg);stroke:var(--ok);stroke-width:2.5}
-.node.active .t1{fill:var(--ok)}
-.node.changing rect{stroke:var(--wa);stroke-width:2.5}
-.node.new rect{stroke:var(--ac);stroke-width:2.5}
-.node{cursor:pointer}.node.sel rect{stroke:var(--wa);stroke-width:3}
+.node .card{fill:var(--pn2);stroke:#3a4356;stroke-width:1.5;transition:fill .3s,stroke .3s}
+.node .t1{fill:var(--tx);font-size:18px;font-weight:700}.node .t2{fill:var(--mu);font-size:13px}
+.node .ic *{fill:none;stroke:var(--ac);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .3s}
+.node .hd{fill:var(--mu);font-size:12px}
+.node text.rt{fill:var(--mu);font:13px Consolas,"D2Coding",monospace;transition:fill .3s}.node g.rt.on text.rt{fill:var(--ok);font-weight:700}
+.node .sv{fill:var(--tx);font-size:13.5px}
+.node .live{fill:var(--ok);font-size:13.5px;font-weight:600}
+.node.active .card{fill:var(--okbg);stroke:var(--ok);stroke-width:2.5}
+.node.active .t1{fill:var(--ok)}.node.active .ic *{stroke:var(--ok)}
+.node.changing .card{stroke:var(--wa);stroke-width:2.5}
+.node.new .card{stroke:var(--ac);stroke-width:2.5}
+.node{cursor:pointer}.node.sel .card{stroke:var(--wa);stroke-width:3}
+.edge .ew{fill:var(--tx);font-size:13px;font-weight:600}
+#story{margin:8px 0 0;padding:6px 0 0;list-style:none;counter-reset:st;flex:1;min-height:150px;overflow:auto;font-size:16px;border-top:1px solid var(--line)}
+#story li{padding:6px 10px!important}
+#story:empty::after{content:"실제 요청이 들어오면, 그 요청이 지나간 길을 여기에 순서대로 적습니다.";color:var(--mu);font-size:13.5px;padding:4px 10px;display:block}
+#story li{counter-increment:st;padding:4px 10px;border-radius:8px;opacity:.5;transition:opacity .3s,background .3s}
+#story li::before{content:counter(st);display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--pn2);text-align:center;font-size:12.5px;line-height:22px;margin-right:10px;font-weight:700}
+#story li.cur{opacity:1;background:var(--okbg)}#story li.cur::before{background:var(--ok);color:#fff}
+#story li b{color:var(--ac);font-weight:600}
 .edge path{stroke:#4f6fa8;stroke-width:2;fill:none;transition:stroke .3s}
 .edge.active path{stroke:var(--ok);stroke-width:3}
 .edge text{fill:var(--mu);font-size:12.5px}.edge{cursor:pointer}.edge.sel path{stroke:var(--wa);stroke-width:3}
@@ -146,7 +159,7 @@ pre.code{margin:0;font:14px/1.65 Consolas,"D2Coding",monospace;counter-reset:ln}
     <div id="appph">아직 실행 중인 서비스가 없습니다.<br><span style="font-size:13px">Claude 가 서비스를 띄우면 실제 화면이 여기에 나옵니다.</span></div>
     <div id="appwrap" style="display:none"><iframe id="app" title="실제 서비스 화면"></iframe></div></div>
   <div class="panel" id="pFlow"><div class="ptitle"><b>시스템 동작 흐름</b><span id="flowsub"></span></div>
-    <div id="flowbox"><svg id="svg"></svg><div id="flownote">움직이는 값 = 실제 관측값</div></div></div>
+    <div id="flowbox"><svg id="svg"></svg><div id="flownote">상자 안의 요청·내용과 움직이는 값 = 실제 관측값</div></div><ol id="story"></ol></div>
   <div class="panel" id="pCode"><div class="ptitle" id="codeh"><b>코드</b></div><div id="bar"></div><div class="pbody" id="codeb"></div></div>
   <div class="panel" id="pParams"><div class="ptitle"><b>파라미터와 반환값</b><span id="ptrace"></span></div><div class="pbody" id="sparams"></div></div>
   <div class="panel" id="pError"><div class="ptitle"><b style="color:var(--er)">오류</b><span id="errwhere"></span></div><div class="pbody" id="errbox"></div></div>
@@ -233,21 +246,60 @@ function drawCtx(c,hot){CTX=c||{};
 }
 
 /* ===== 흐름도 ===== */
-const NW=230,NH=74,VG=78,HG=34;let POS={};
+/* 왼쪽→오른쪽(화면 → 서버 → 저장소). 상자 안에는 실제로 들어온 요청 경로와 실제로 담긴 내용만 쓴다. */
+let POS={},NWc=240,ROUTES={},ROUTEIDX={},STORE={};
+const KLABEL={client:'사용자가 보는 화면',server:'요청을 받아 처리',service:'처리 모듈',storage:'디스크에 남는 파일',db:'데이터베이스',ai:'AI 모델',external:'외부 서비스'};
+function edgeWord(a,b){const ka=ARCH.nodes[a]?.kind,kb=ARCH.nodes[b]?.kind;if(ka==='client')return '요청 보냄';if(kb==='storage')return '저장 · 읽기';if(kb==='db')return '질의';if(kb==='ai')return '물어봄';if(kb==='external')return '호출';return '넘김'}
+function icon(kind,x,y){const g=b=>`<g class="ic" transform="translate(${x},${y})">${b}</g>`;switch(kind){
+  case 'client':return g('<rect x="1" y="2" width="34" height="23" rx="3"/><path d="M12 32h12M18 25v7"/>');
+  case 'server':return g('<rect x="2" y="1" width="32" height="9" rx="2"/><rect x="2" y="13" width="32" height="9" rx="2"/><rect x="2" y="25" width="32" height="9" rx="2"/><path d="M8 5.5h.1M8 17.5h.1M8 29.5h.1"/>');
+  case 'storage':return g('<path d="M5 1h17l9 9v24H5z"/><path d="M22 1v9h9M10 17h15M10 23h15M10 29h9"/>');
+  case 'db':return g('<ellipse cx="18" cy="6" rx="14" ry="5"/><path d="M4 6v22c0 3 6 5 14 5s14-2 14-5V6M4 17c0 3 6 5 14 5s14-2 14-5"/>');
+  case 'external':return g('<path d="M10 30h18a7 7 0 0 0 0-14a10 10 0 0 0-19-2a8 8 0 0 0 1 16z"/>');
+  case 'ai':return g('<circle cx="18" cy="17" r="14"/><path d="M18 8v18M9 17h18"/>');
+  default:return g('<rect x="2" y="2" width="32" height="30" rx="6"/><path d="M13 12l-5 5 5 5M23 12l5 5-5 5"/>')}}
+const routeKey=(m,p)=>m+' '+String(p||'').split('?')[0].replace(/\/\d+(?=\/|$)/g,'/<번호>');
+const PLUMB_=/^(do_[A-Z]+|send_|redirect|log_|handle|end_headers|parse_|_)/,PLUMB={test:f=>PLUMB_.test(String(f||'').split('.').pop())};
+const tw=(s,px)=>[...String(s)].reduce((w,c)=>w+(c.charCodeAt(0)>0x2e80?1:0.58),0)*px;
+function fitW(s,px,max){s=String(s||'');if(tw(s,px)<=max)return s;while(s.length>1&&tw(s+'…',px)>max)s=s.slice(0,-1);return s+'…'}
+function learnRoute(t){const ev=TR[t]||[],rq=ev.find(e=>e.type==='HTTP_REQUEST');if(!rq)return false;const k=routeKey(rq.data.method,rq.data.path),fns=[];
+  for(const e of ev)if(e.type==='CALL'&&!PLUMB.test(e.data.fn||'')&&!fns.includes(e.data.fn))fns.push(e.data.fn);
+  const isNew=!(k in ROUTES)||(!ROUTES[k].length&&fns.length);if(isNew)ROUTES[k]=fns.slice(0,2);return isNew}
+function storeSum(text){try{const o=JSON.parse(text);if(!Array.isArray(o))return `항목 ${Object.keys(o).length}개`;let s=`${o.length}건`;const last=o[o.length-1];
+    if(last&&typeof last==='object'){const v=Object.entries(last).filter(([k,x])=>k!=='id'&&typeof x!=='object').map(([,x])=>x).slice(0,2),sub=Object.entries(last).find(([,x])=>Array.isArray(x));s+=` · 마지막 「${v.join(' ')}」`+(sub?` ${sub[0]} ${sub[1].length}개`:'')}return s}
+  catch(_){return `${String(text).split('\n').length}줄`}}
+async function refreshStore(){let ch=false;for(const [id,n] of Object.entries(ARCH.nodes)){if(n.kind!=='storage'||!(n.files||[]).length)continue;
+    const f=await j('/file?path='+encodeURIComponent(n.files[0])).catch(()=>({error:1}));const s=f.error?null:storeSum(f.text);if(s!==STORE[id]){STORE[id]=s;ch=true}}
+  if(ch)flowChanged()}
+function nodeH(id,n){if(n.kind==='server')return 120+Math.max(1,Math.min(4,Object.keys(ROUTES).length))*40;if(n.kind==='storage')return 150;return 98}
 function layout(){const ns=Object.keys(ARCH.nodes),Lv={};ns.forEach(n=>Lv[n]=0);
   for(let i=0;i<ns.length;i++)ARCH.links.forEach(l=>{if(Lv[l.from]!==undefined&&Lv[l.to]!==undefined&&l.from!==l.to&&Lv[l.to]<Lv[l.from]+1&&Lv[l.from]+1<ns.length)Lv[l.to]=Lv[l.from]+1});
   const rows={};ns.sort((a,b)=>(ARCH.nodes[a].added||0)-(ARCH.nodes[b].added||0)).forEach(n=>(rows[Lv[n]]=rows[Lv[n]]||[]).push(n));return rows}
 const fit=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
-function drawFlow(){const box=$('flowbox');if(!box.isConnected||!box.clientWidth)return;const svg=$('svg'),W=box.clientWidth,rows=layout(),ks=Object.keys(rows).map(Number).sort((a,b)=>a-b);POS={};
-  const H=Math.max(box.clientHeight,ks.length*(NH+VG));const top=Math.max(10,(H-(ks.length*NH+(ks.length-1)*VG))/2);
-  ks.forEach((k,ri)=>{const r=rows[k],tw=r.length*NW+(r.length-1)*HG;r.forEach((n,i)=>POS[n]={x:Math.max(6,(W-tw)/2)+i*(NW+HG),y:top+ri*(NH+VG)})});
+function drawFlow(){const box=$('flowbox');if(!box.isConnected||!box.clientWidth)return;const svg=$('svg'),rows=layout(),ks=Object.keys(rows).map(Number).sort((a,b)=>a-b);POS={};
+  const GAP=96,VG=22,cols=Math.max(1,ks.length);NWc=Math.max(215,Math.min(330,(box.clientWidth-20-(cols-1)*GAP)/cols));
+  const W=Math.max(box.clientWidth,cols*NWc+(cols-1)*GAP+30),colH=ks.map(k=>rows[k].reduce((s,n)=>s+nodeH(n,ARCH.nodes[n])+VG,-VG));
+  // 흐름도는 필요한 높이만 쓰고, 남는 자리는 아래의 '지나간 길' 문장에 준다
+  if(Object.keys(ARCH.nodes).length){const need=(Math.max(0,...colH)+70)*box.clientWidth/W;box.style.flex='none';box.style.height=Math.max(220,need)+'px'}else{box.style.flex='';box.style.height=''}
+  const H=Math.max(box.clientHeight*W/box.clientWidth,Math.max(0,...colH)+30);
+  const left=(W-(cols*NWc+(cols-1)*GAP))/2;
+  ks.forEach((k,ci)=>{let y=(H-colH[ci])/2;rows[k].forEach(n=>{const h=nodeH(n,ARCH.nodes[n]);POS[n]={x:left+ci*(NWc+GAP),y,h};y+=h+VG})});
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   let h='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0L10,5L0,10z" fill="#5d7fbf"/></marker></defs>';
-  ARCH.links.forEach((l,i)=>{const a=POS[l.from],b=POS[l.to];if(!a||!b)return;const x1=a.x+NW/2,y1=a.y+NH,x2=b.x+NW/2,y2=b.y;const up=y2<=y1;
-    const d=up?`M${a.x+NW},${a.y+NH/2} C${a.x+NW+70},${a.y+NH/2} ${b.x+NW+70},${b.y+NH/2} ${b.x+NW},${b.y+NH/2}`:`M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2-2}`;
-    h+=`<g class="edge" id="e-${esc(l.from)}-${esc(l.to)}" data-i="${i}"><path d="${d}" marker-end="url(#ar)"/><text x="${(x1+x2)/2+14}" y="${up?(a.y+b.y)/2+NH/2:(y1+y2)/2+5}">${esc(l.data||'')}</text></g>`});
-  for(const [id,n] of Object.entries(ARCH.nodes)){const p=POS[id];if(!p)continue;
-    h+=`<g class="node${Date.now()/1000-(n.added||0)<8?' new':''}" id="n-${esc(id)}" data-id="${esc(id)}"><rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="12"/><text class="t1" x="${p.x+NW/2}" y="${p.y+32}" text-anchor="middle">${esc(fit(n.label||id,14))}</text><text class="t2" x="${p.x+NW/2}" y="${p.y+55}" text-anchor="middle">${esc(fit(n.role||'',15))}</text><title>${esc((n.label||id)+' — '+(n.role||''))}</title></g>`}
+  ARCH.links.forEach((l,i)=>{const a=POS[l.from],b=POS[l.to];if(!a||!b)return;let d,tx,ty;
+    if(b.x>a.x){const x1=a.x+NWc,y1=a.y+Math.min(a.h/2,60),x2=b.x,y2=b.y+Math.min(b.h/2,60),m=(x1+x2)/2;d=`M${x1},${y1} C${m},${y1} ${m},${y2} ${x2-2},${y2}`;tx=m;ty=Math.min(y1,y2)-14}
+    else{const x1=a.x+NWc/2,y1=a.y+a.h,x2=b.x+NWc/2,y2=b.y,dn=y2>y1;d=dn?`M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2-2}`:`M${a.x+NWc},${a.y+30} C${a.x+NWc+60},${a.y+30} ${b.x+NWc+60},${b.y+30} ${b.x+NWc},${b.y+30}`;tx=(x1+x2)/2+40;ty=dn?(y1+y2)/2:(a.y+b.y)/2+30}
+    h+=`<g class="edge" id="e-${esc(l.from)}-${esc(l.to)}" data-i="${i}"><path d="${d}" marker-end="url(#ar)"/><text class="ew" x="${tx}" y="${ty}" text-anchor="middle">${esc(edgeWord(l.from,l.to))}</text><title>${esc(l.data||'')}</title></g>`});
+  ROUTEIDX={};const rkeys=Object.keys(ROUTES).slice(-4);rkeys.forEach((k,i)=>ROUTEIDX[k]=i);
+  for(const [id,n] of Object.entries(ARCH.nodes)){const p=POS[id];if(!p)continue;const inner=NWc-30;
+    let body='';
+    if(n.kind==='server'){body+=`<text class="hd" x="${p.x+16}" y="${p.y+80}">들어온 요청 → 실행된 함수 (실측)</text>`;
+      body+=rkeys.length?rkeys.map((k,i)=>`<g class="rt" id="rt-${i}"><text class="rt" x="${p.x+16}" y="${p.y+102+i*40}">${esc(fitW(k,13,inner))}</text><text class="rt" x="${p.x+30}" y="${p.y+120+i*40}">${esc(fitW('→ '+(ROUTES[k].length?ROUTES[k].join(', '):'(함수 호출 없음)'),13,inner-14))}</text></g>`).join(''):`<text class="hd" x="${p.x+16}" y="${p.y+102}">아직 요청이 없습니다</text>`}
+    if(n.kind==='storage'){const [a,...b]=String(STORE[id]||'아직 읽지 않음').split(' · ');body+=`<text class="hd" x="${p.x+16}" y="${p.y+78}">지금 담긴 내용 (실측)</text><text class="sv" x="${p.x+16}" y="${p.y+98}">${esc(fitW(a,13.5,inner))}</text>`+(b.length?`<text class="sv" x="${p.x+16}" y="${p.y+117}">${esc(fitW(b.join(' · '),13.5,inner))}</text>`:'')}
+    const lw=NWc-74,lp=tw(n.label||id,18)<=lw?18:15;
+    h+=`<g class="node${Date.now()/1000-(n.added||0)<8?' new':''}" id="n-${esc(id)}" data-id="${esc(id)}"><rect class="card" x="${p.x}" y="${p.y}" width="${NWc}" height="${p.h}" rx="14"/>${icon(n.kind,p.x+14,p.y+14)}`+
+      `<text class="t1" x="${p.x+62}" y="${p.y+30}" style="font-size:${lp}px">${esc(fitW(n.label||id,lp,lw))}</text><text class="t2" x="${p.x+62}" y="${p.y+50}">${esc(fitW(KLABEL[n.kind]||'',13,lw))}</text>${body}`+
+      `<text class="live" id="live-${esc(id)}" x="${p.x+16}" y="${p.y+p.h-12}"></text><title>${esc((n.label||id)+' — '+(n.role||''))}</title></g>`}
   if(!Object.keys(ARCH.nodes).length)h+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#8e97a8" font-size="15">구조는 기능이 필요해질 때 하나씩 생깁니다.</text>`;
   svg.innerHTML=h;
   svg.querySelectorAll('.node').forEach(g=>g.onclick=()=>{manual();const n=ARCH.nodes[g.dataset.id];select({type:'구성 요소',id:g.dataset.id,label:n.label,role:n.role,files:n.files},g);if((n.files||[]).length)openDrawer('code',n.files[0])});
@@ -342,20 +394,40 @@ async function pump(){if(busy)return;busy=true;while(Q.length){const x=Q.shift()
   try{if(x.kind==='present'){const d=x.e.data;if(d.kind==='write')await presentWrite(d);else if(d.kind==='edit')await presentEdit(d);else if(d.kind==='command')await presentCommand(d);await post('/ack',{id:x.e.id})}
       else if(x.kind==='replay')await replay(x.trace)}catch(err){console.error(err);if(x.kind==='present')await post('/ack',{id:x.e.id})}}busy=false;if(AUTO&&view==='code')show('service')}
 let REPLAYING=false;
-async function replay(t){REPLAYING=true;try{await replay_(t)}finally{REPLAYING=false}}
-async function replay_(t){curTrace=t;drawParams();lastNode=null;show('service');await sleep(250);
-  const evs=(TR[t]||[]).filter(e=>RT.includes(e.type));let calls=0;
+let FLOWDIRTY=false;
+function flowChanged(){if(REPLAYING||busy)FLOWDIRTY=true;else drawFlow()}
+async function replay(t){REPLAYING=true;try{await replay_(t)}finally{REPLAYING=false;if(FLOWDIRTY){FLOWDIRTY=false;setTimeout(()=>{if(!REPLAYING)drawFlow()},2500/S.speed)}}}
+/* 요청 한 번이 지나간 길을 번호 붙은 쉬운 문장으로 (모두 실제 이벤트에서 나온 값) */
+const nl=k=>ARCH.nodes[nodeOfKind(k)]?.label||({client:'브라우저',server:'서버'})[k]||k;
+function setLive(id,text){document.querySelectorAll('.node .live').forEach(x=>x.textContent='');const el=id&&$('live-'+id);if(el)el.textContent=fitW(text,13.5,NWc-30)}
+function step(html,node,live){const ol=$('story');ol.querySelectorAll('li.cur').forEach(x=>x.classList.remove('cur'));const li=document.createElement('li');li.className='cur fade';li.innerHTML=html;ol.appendChild(li);li.scrollIntoView({block:'nearest',behavior:'smooth'});if(node)setLive(node,live||li.textContent)}
+const argVal=v=>{if(v&&typeof v==='object'&&'value' in v)v=v.value;v=String(v);return v.length>24?v.slice(0,24)+'…':v};
+const argsTxt=a=>Object.entries(a||{}).filter(([k])=>k!=='self').map(([k,v])=>`${k}=${argVal(v)}`).join(', ');
+function narrate(e,seen){const d=e.data||{},sv=nodeOfKind('server'),cl=nodeOfKind('client');
+  if(e.type==='HTTP_REQUEST'){document.querySelectorAll('.rt.on').forEach(x=>x.classList.remove('on'));const i=ROUTEIDX[routeKey(d.method,d.path)];if(i!==undefined)$('rt-'+i)?.classList.add('on');
+    return step(`${esc(nl('client'))} → ${esc(nl('server'))} 에 요청: <b>${esc(d.method)} ${esc(d.path)}</b>`,sv,`받은 요청 ${d.method} ${d.path}`)}
+  if(e.type==='HTTP_BODY'){const f=formObj(d.body);return step(`함께 보낸 값: <b>${esc(f?Object.entries(f).map(([k,v])=>`${k}=${v}`).join(', '):fit(String(d.body||''),60))}</b>`,sv,'받은 값 '+summary(d.body))}
+  if(e.type==='CALL'&&!PLUMB.test(d.fn||'')&&!seen.has(d.fn)&&seen.size<4){seen.add(d.fn);const a=argsTxt(d.args);return step(`${esc(nl('server'))} 안에서 <b>${esc(d.fn)}</b>(${esc(fit(a,50))}) 실행`,nodeOfFile(d.file)||sv,`${d.fn}() 실행 중`)}
+  if(e.type==='FILE_IO'){const w=/쓰|write|w/.test(d.mode||'');const st=nodeOfFile(d.path)||nodeOfKind('storage');return step(`<b>${esc(d.path)}</b> ${w?'에 저장(파일 전체를 다시 씀)':'에서 읽음'}`,st,w?'방금 저장됨':'읽는 중')}
+  if(e.type==='DB_QUERY')return step(`데이터베이스에 질의: <b>${esc(fit(d.sql||'',60))}</b>`,nodeOfKind('db'),'질의 실행')
+  if(e.type==='HTTP_RESPONSE'){const s=d.status;let w;if(s>=300&&s<400)w='다른 주소로 다시 가라고 응답 → 화면이 새로 그려짐';else if(s>=400)w='요청을 거절'+(d.body&&!/바이트\)$/.test(d.body)?': '+esc(fit(readable(d.body),40)):'');else w=/html/.test(d.content_type||'')?'화면(HTML)을 돌려줌':'결과를 돌려줌: '+esc(fit(summary(d.body),40));
+    return step(`${esc(nl('server'))} → ${esc(nl('client'))} 응답 <b>${s}</b> — ${w}`,cl,`응답 ${s} 받음`)}
+  if(e.type==='ERROR')return step(`<span style="color:var(--er)">오류가 났습니다</span>`,null)}
+async function replay_(t){curTrace=t;drawParams();lastNode=null;show('service');$('story').innerHTML='';setLive(null);await sleep(250);
+  const evs=(TR[t]||[]).filter(e=>RT.includes(e.type));let calls=0;const seen=new Set();
   for(const e of evs){if((e.type==='CALL'||e.type==='RETURN')&&calls>12)continue;if(e.type==='CALL')calls++;
+    narrate(e,seen);
     const ns=nodesOf(e).filter(Boolean);const d=e.data||{};
     if(e.type==='CALL'||e.type==='RETURN'){show('func')}else if(e.type==='DB_QUERY'||e.type==='FILE_IO'){show('data')}else if(e.type==='ERROR'){showError(e);continue}
     document.querySelectorAll('.pr.cur').forEach(x=>x.classList.remove('cur'));const row=$('PR-'+e.id);if(row){row.classList.add('cur');row.scrollIntoView({block:'nearest',behavior:'smooth'})}
     if(e.type==='HTTP_BODY'){const c=nodeOfKind('client'),s=nodeOfKind('server');await flyChip(c,s,summary(d.body));light(s);continue}
-    if(e.type==='HTTP_RESPONSE'){show('service');const c=nodeOfKind('client'),s=nodeOfKind('server');light(s);await flyChip(s,c,`${d.status} ${summary(d.body)}`.trim());light(c);await dwell(0.8);continue}
+    if(e.type==='HTTP_RESPONSE'){show('service');const c=nodeOfKind('client'),s=nodeOfKind('server');light(s);await flyChip(s,c,`응답 ${d.status}${d.body&&!/바이트\)$/.test(d.body)?' '+summary(d.body):''}`);light(c);await dwell(0.8);continue}
     if((e.type==='DB_QUERY'||e.type==='FILE_IO')&&ns[0]){if(lastNode&&lastNode!==ns[0]&&edgeEl(lastNode,ns[0]))await flyChip(lastNode,ns[0],e.type==='FILE_IO'?`${d.mode}: ${d.path}`:d.sql.split(' ').slice(0,2).join(' '));light(ns[0]);await dwell(0.8);continue}
     for(const n of ns)light(n);
     if(e.type==='CALL'&&d.file)await focusCode(d.file,d.line);
     await dwell(e.type==='CALL'?1.2:0.7)}
-  await sleep(600);document.querySelectorAll('.node.active').forEach(x=>x.classList.remove('active'))}
+  await sleep(600);document.querySelectorAll('.node.active').forEach(x=>x.classList.remove('active'));
+  if(evs.some(e=>e.type==='FILE_IO'))await refreshStore()}
 function showError(e){const d=e.data||{},tb=d.traceback||d.text||'';const m=[...tb.matchAll(/File "([^"]+)", line (\d+)/g)].filter(x=>!/harness|lib[\\/]|Python3/i.test(x[1])).pop();
   $('errbox').innerHTML=`<pre>${esc(tb.slice(-1600))}</pre>`;if(m){const f=m[1].replace(/\\/g,'/').split('/workspace/').pop();$('errwhere').textContent=`${f}:${m[2]}`;focusCode(f,+m[2],'errl')}
   show('error')}
@@ -398,8 +470,9 @@ function appGone(){$('appwrap').style.display='none';$('appph').style.display=''
 /* ===== 이벤트 ===== */
 function on(e){const d=e.data||{};
   if(d.trace){if(!TR[d.trace]){TR[d.trace]=[];TRORDER.push(d.trace)}TR[d.trace].push(e);
+    if(e.type==='HTTP_RESPONSE'&&learnRoute(d.trace))flowChanged();
     if(e.type==='HTTP_RESPONSE'&&!e.backlog){if(!REPLAYING&&!Q.some(x=>x.kind==='replay'))curTrace=d.trace;drawParams();const rq=TR[d.trace].find(x=>x.type==='HTTP_REQUEST');
-      const asset=/text\/html|javascript|css|image|icon/.test(d.content_type||'');if(!asset)enqueue({kind:'replay',trace:d.trace});
+      const asset=/text\/html|javascript|css|image|icon/.test(d.content_type||'')&&d.status<400;if(!asset)enqueue({kind:'replay',trace:d.trace});
       if(rq&&rq.data.method!=='GET'&&d.status<400&&document.activeElement!==$('app')){clearTimeout(reloadT);reloadT=setTimeout(()=>{try{$('app').contentWindow.location.reload()}catch(_){$('app').src=$('app').src}},700)}}}
   onLog(e);
   if(e.type==='PRESENT'&&!(e.backlog&&e.acked))enqueue({kind:'present',e});
@@ -408,7 +481,7 @@ function on(e){const d=e.data||{};
   if(e.type==='STEP_STARTED'){STEP=e.step;j('/context').then(c=>drawCtx(c))}
   if(e.type==='CONTEXT'&&(d.kind==='limit'||d.kind==='problem'))LASTPROB=d.text;
   if(e.type==='CONTEXT'&&!e.backlog)j('/context').then(c=>drawCtx(c,d.kind));
-  if(e.type==='ARCH'&&!e.backlog)j('/arch').then(a=>{ARCH=a;if(!busy)show('arch');drawFlow();if(d.id)mark(d.id,'new');setTimeout(()=>{if(!busy&&AUTO&&view==='arch')show('service')},6000/S.speed)});
+  if(e.type==='ARCH'&&!e.backlog)j('/arch').then(a=>{ARCH=a;if(!busy)show('arch');drawFlow();refreshStore();if(d.id)mark(d.id,'new');setTimeout(()=>{if(!busy&&AUTO&&view==='arch')show('service')},6000/S.speed)});
   if(e.type==='APP_URL'){setApp(d.url);if(!busy)show('service')}
   if(e.type==='PROCESS_EXIT'&&!e.backlog&&$('appurl').textContent)appGone();
   if((e.type==='ERROR'||(e.type==='PROCESS_OUTPUT'&&/Traceback|Error:/.test(d.text||'')))&&!e.backlog&&e.type==='ERROR')showError(e);
@@ -417,7 +490,7 @@ function on(e){const d=e.data||{};
 }
 show('service',true);
 {const m=location.hash.match(/open=(\w+)/);if(m)setTimeout(()=>openDrawer(m[1]),800)}   // 확인·링크용: #open=log 등
-Promise.all([j('/context'),j('/arch')]).then(([c,a])=>{drawCtx(c);ARCH=a;drawFlow()});
+Promise.all([j('/context'),j('/arch')]).then(([c,a])=>{drawCtx(c);ARCH=a;drawFlow();refreshStore()});
 refresh();setInterval(refresh,2000);
 const es=new EventSource('/stream');es.onmessage=m=>on(JSON.parse(m.data));es.onerror=()=>{$('badge').textContent='연결 끊김';$('badge').className='off'};
 </script>
