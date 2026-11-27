@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS Studio</title>
+<style>
+:root{--bg:#14161a;--pn:#1c1f26;--bd:#2c313c;--tx:#d8dde6;--mu:#8b93a3;--ok:#4cc38a;--er:#ef6b6b;--hi:#3b4a2a;--ac:#6ea8fe}
+@media (prefers-color-scheme:light){:root{--bg:#f3f4f7;--pn:#fff;--bd:#d6d9e0;--tx:#1d2330;--mu:#5d6676;--hi:#dff3cf;--ac:#1f5fd1}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Malgun Gothic",sans-serif;height:100vh;display:grid;grid-template-rows:auto 1fr;}
+header{display:flex;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--pn);flex-wrap:wrap}
+header b{font-size:15px}
+#badge{padding:2px 10px;border-radius:99px;font-weight:600;background:var(--ok);color:#06210f}
+#badge.paused{background:#e5b84b;color:#2a1d00}
+button{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 12px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--ac)}
+main{display:grid;grid-template-columns:220px 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px;min-height:0}
+section{background:var(--pn);border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0}
+section h2{margin:0;padding:6px 10px;font-size:12px;color:var(--mu);border-bottom:1px solid var(--bd);font-weight:600}
+.body{overflow:auto;padding:8px 10px;flex:1;min-height:0}
+#tree{grid-row:1/3}
+#code{grid-column:2}
+#term{grid-column:3}
+#say{grid-column:2}
+#tl{grid-column:3}
+pre{margin:0;font:12.5px/1.5 Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+.ln{display:block;padding:0 4px}.ln.new{background:var(--hi)}
+.f{padding:1px 4px;border-radius:4px}.f.new{background:var(--hi)}.f.dir{color:var(--mu)}.f.sel{outline:1px solid var(--ac)}
+.cmd{color:var(--ac)}.err{color:var(--er)}.okc{color:var(--ok)}
+.ev{padding:2px 0;border-bottom:1px dashed var(--bd);font-size:12.5px}.ev small{color:var(--mu)}
+.say{padding:6px 8px;margin-bottom:6px;border-left:3px solid var(--ac);background:rgba(110,168,254,.08);border-radius:4px}
+@media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:none}#tree,#code,#term,#say,#tl{grid-column:1;grid-row:auto;min-height:180px}body{height:auto}}
+</style>
+</head>
+<body>
+<header>
+  <b>CS Studio</b><span id="badge">연결 중</span><span id="step" style="color:var(--mu)"></span>
+  <button id="bp">일시정지</button><button id="br">재개</button>
+  <label style="color:var(--mu)">작업 간 지연 <input id="sp" type="range" min="0" max="5" step="0.5" value="1" style="vertical-align:middle"> <span id="spv">1</span>초</label>
+  <span id="why" style="color:var(--mu)"></span>
+</header>
+<main>
+  <section id="tree"><h2>프로젝트 탐색기</h2><div class="body" id="treeb"></div></section>
+  <section id="code"><h2 id="codeh">코드</h2><div class="body"><pre id="codeb">아직 선택된 파일이 없습니다.</pre></div></section>
+  <section id="term"><h2>터미널 · 실행 로그 (실제 출력)</h2><div class="body"><pre id="termb"></pre></div></section>
+  <section id="say"><h2>Claude 설명</h2><div class="body" id="sayb"></div></section>
+  <section id="tl"><h2>타임라인 (이벤트)</h2><div class="body" id="tlb"></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const prev={}, fresh=new Set(); let cur=null;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function j(u,o){const r=await fetch(u,o);return r.json()}
+async function post(u,b){return j(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})})}
+$('bp').onclick=()=>post('/pause',{reason:'화면에서 일시정지'});
+$('br').onclick=()=>post('/resume');
+$('sp').oninput=e=>{$('spv').textContent=e.target.value;post('/speed',{delay:+e.target.value})};
+async function drawTree(){
+  const t=await j('/tree');
+  $('treeb').innerHTML=t.length?t.map(x=>`<div class="f ${x.dir?'dir':''} ${fresh.has(x.path)?'new':''} ${cur===x.path?'sel':''}" data-p="${esc(x.path)}" style="padding-left:${4+8*(x.path.split('/').length-1)}px;cursor:${x.dir?'default':'pointer'}">${x.dir?'▸ ':''}${esc(x.path.split('/').pop())}</div>`).join(''):'<span style="color:var(--mu)">비어 있음</span>';
+  $('treeb').querySelectorAll('.f:not(.dir)').forEach(e=>e.onclick=()=>show(e.dataset.p));
+}
+async function show(p){
+  cur=p; const f=await j('/file?path='+encodeURIComponent(p)); if(f.error)return;
+  const old=new Set((prev[p]||'').split('\n')); const first=!(p in prev);
+  $('codeh').textContent='코드 · '+p;
+  $('codeb').innerHTML=f.text.split('\n').map(l=>`<span class="ln ${!first&&!old.has(l)?'new':''}">${esc(l)||' '}</span>`).join('');
+  prev[p]=f.text; drawTree();
+}
+function term(html){const t=$('termb');t.insertAdjacentHTML('beforeend',html);t.parentElement.scrollTop=1e9}
+function add(e){
+  const d=e.data||{}, t=new Date(e.ts*1000).toLocaleTimeString();
+  $('tlb').insertAdjacentHTML('beforeend',`<div class="ev">#${e.id} <b class="${e.status==='error'?'err':''}">${e.type}</b> <small>${t}</small> ${esc(d.path||d.command||d.tool||d.reason||'')}</div>`);
+  $('tlb').parentElement.scrollTop=1e9;
+  if(e.type==='STEP_STARTED'){$('step').textContent='단계: '+e.step+(d.title?' - '+d.title:'')}
+  if(e.type==='EXPLAIN'){$('sayb').insertAdjacentHTML('beforeend',`<div class="say">${esc(d.text)}</div>`);$('sayb').scrollTop=1e9}
+  if(e.type==='RUN_COMMAND')term(`<span class="cmd">$ ${esc(d.command)}</span>\n<small>(${esc(d.cwd||'')})</small>\n`);
+  if(e.type==='COMMAND_OUTPUT'){term(esc(d.stdout||'')+(d.stderr?`<span class="err">${esc(d.stderr)}</span>`:'')+`\n<span class="${e.status==='ok'?'okc':'err'}">[종료 코드 ${d.exit_code??'?'}]</span>\n\n`)}
+  if(e.type==='BLOCKED'||e.type==='WAITING')term(`<span class="err">[${e.type}] ${esc(d.why||'')}</span>\n`);
+  if(['CREATE_FILE','WRITE_CODE','MODIFY_CODE'].includes(e.type)&&d.path){fresh.add(d.path)}
+  if(e.type==='VALIDATE'&&d.path&&d.exists){drawTree().then(()=>show(d.path));setTimeout(()=>{fresh.delete(d.path);drawTree()},4000)}
+  if(e.type==='PAUSE'||e.type==='RESUME')refresh();
+}
+async function refresh(){const s=await j('/state');const b=$('badge');b.textContent=s.mode==='running'?'진행 중':'일시정지';b.className=s.mode==='running'?'':'paused';$('why').textContent=s.mode==='paused'?s.reason:'';$('sp').value=s.delay;$('spv').textContent=s.delay}
+refresh();drawTree();
+const es=new EventSource('/stream');es.onmessage=m=>add(JSON.parse(m.data));
+</script>
+</body>
+</html>
