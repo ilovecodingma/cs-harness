@@ -8,7 +8,7 @@ WS = ROOT / "workspace"
 import tempfile
 RUN = pathlib.Path(tempfile.mkdtemp(prefix="cs_gate_"))
 ENV = {k: v for k, v in os.environ.items() if k != "CS_STUDIO_PORT"}
-ENV.update(CS_HARNESS_RUN=str(RUN), PYTHONIOENCODING="utf-8")
+ENV.update(CS_HARNESS_RUN=str(RUN), PYTHONIOENCODING="utf-8", CS_AUTO_ACK="1")
 BASE = None
 results = []
 
@@ -74,6 +74,9 @@ def main():
         th0.start(); time.sleep(3)
         check("PowerShell 도 일시정지 중 붙잡힘", th0.is_alive())
         http("/resume", {}); th0.join(15)
+        big = "\n".join(f"x{i} = {i}" for i in range(30))
+        d, _, out = hook(pre("Write", {"file_path": f_in, "content": big}))
+        check("한 번에 30줄 쓰기는 거부(블록 하나씩)", d == "deny")
         # 4. 정상 → 허용 + 지연
         d, dt, _ = hook(pre("Write", {"file_path": f_in, "content": "x"}))
         check("작업 공간 안 쓰기 허용 + 지연 적용", d == "allow" and dt >= 1.0, f"{dt:.2f}초")
@@ -116,9 +119,54 @@ def main():
         for p in (WS / "_gate_test.py",):
             if p.exists():
                 p.unlink()
+    gate_view_test()
     n = sum(1 for _, c in results if c)
     print(f"\n{n}/{len(results)} 통과")
     sys.exit(0 if n == len(results) else 1)
+
+
+def gate_view_test():
+    """화면 없이(자동 확인 끔) 띄운 Studio: 화면이 없으면 거부, 화면이 늦게 확인하면 그만큼 기다림."""
+    global BASE
+    run2 = pathlib.Path(tempfile.mkdtemp(prefix="cs_view_"))
+    env2 = {**ENV, "CS_HARNESS_RUN": str(run2)}
+    env2.pop("CS_AUTO_ACK", None)
+    srv = subprocess.Popen([sys.executable, "-X", "utf8", str(ROOT / "studio" / "server.py")], env=env2, cwd=ROOT,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    old_env, old_base = dict(ENV), BASE
+    try:
+        for _ in range(50):
+            if (run2 / "port.txt").exists():
+                break
+            time.sleep(0.2)
+        BASE = "http://127.0.0.1:" + (run2 / "port.txt").read_text().strip()
+        ENV.clear(); ENV.update(env2)
+        f = str(WS / "_view_test.py")
+        d, _, _ = hook(pre("Write", {"file_path": f, "content": "a = 1\n"}))
+        check("화면(Studio 창)이 없으면 작업 거부", d == "deny")
+        # 가짜 화면: SSE 에 붙어 있다가 PRESENT 를 받으면 2초 뒤 확인
+        stop = threading.Event()
+        def viewer():
+            r = urllib.request.urlopen(BASE + "/stream", timeout=30)
+            for raw in r:
+                if stop.is_set():
+                    break
+                line = raw.decode("utf-8").strip()
+                if line.startswith("data:"):
+                    e = json.loads(line[5:])
+                    if e["type"] == "PRESENT" and not e.get("backlog"):
+                        time.sleep(2)
+                        http("/ack", {"id": e["id"]})
+        threading.Thread(target=viewer, daemon=True).start()
+        time.sleep(1)
+        d, dt, _ = hook(pre("Write", {"file_path": f, "content": "a = 1\n"}))
+        check("화면이 다 보여 줄 때까지 실제 작업을 시작하지 않음", d == "allow" and dt >= 2.0, f"{dt:.1f}초")
+        pres = [e for e in http("/events") if e["type"] == "PRESENT"]
+        check("화면에 보낸 내용 = Claude 가 쓸 실제 코드", pres and pres[-1]["data"].get("content") == "a = 1\n")
+        stop.set()
+    finally:
+        ENV.clear(); ENV.update(old_env); BASE = old_base
+        srv.terminate()
 
 
 if __name__ == "__main__":

@@ -35,10 +35,15 @@ def main():
             (RUN / "port.txt").unlink()      # 남아 있던 옛 번호가 다른 프로그램을 가리키지 않게
         except OSError:
             pass
-        cmd = [sys.executable, str(ROOT / "studio" / "server.py"), "--open"] + (["--watch-input"] if watch else [])
+        cmd = [sys.executable, str(ROOT / "studio" / "app.py")] + (["--watch-input"] if watch else [])
+        try:
+            import webview  # noqa: F401
+        except ImportError:
+            print("CS Studio 프로그램에 필요한 pywebview 를 설치합니다...", flush=True)
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pywebview"])
         flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0   # DETACHED_PROCESS | NEW_PROCESS_GROUP
         subprocess.Popen(cmd, cwd=ROOT, creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(50):
+        for _ in range(100):
             if alive():
                 break
             time.sleep(0.2)

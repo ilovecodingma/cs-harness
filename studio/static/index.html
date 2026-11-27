@@ -5,86 +5,158 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CS Studio</title>
 <style>
-:root{--bg:#14161a;--pn:#1c1f26;--bd:#2c313c;--tx:#d8dde6;--mu:#8b93a3;--ok:#4cc38a;--er:#ef6b6b;--hi:#3b4a2a;--ac:#6ea8fe}
-@media (prefers-color-scheme:light){:root{--bg:#f3f4f7;--pn:#fff;--bd:#d6d9e0;--tx:#1d2330;--mu:#5d6676;--hi:#dff3cf;--ac:#1f5fd1}}
+:root{--bg:#121418;--pn:#1b1e25;--bd:#2c313c;--tx:#dde2ea;--mu:#8b93a3;--ok:#4cc38a;--er:#ef6b6b;--add:rgba(76,195,138,.16);--del:rgba(239,107,107,.18);--cur:rgba(110,168,254,.16);--ac:#6ea8fe;--kw:#c792ea;--st:#e6c07b;--cm:#6a7385;--nu:#f78c6c}
+@media (prefers-color-scheme:light){:root{--bg:#eef0f4;--pn:#fff;--bd:#d6d9e0;--tx:#1d2330;--mu:#5d6676;--add:#dcf5e6;--del:#fde2e2;--cur:#e3edff;--ac:#1f5fd1;--kw:#7a3fbf;--st:#9a6a00;--cm:#8a93a3;--nu:#b34d1f}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Malgun Gothic",sans-serif;height:100vh;display:grid;grid-template-rows:auto 1fr;}
-header{display:flex;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--pn);flex-wrap:wrap}
-header b{font-size:15px}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,"Malgun Gothic",sans-serif;display:grid;grid-template-rows:auto 1fr auto}
+header{display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);background:var(--pn);flex-wrap:wrap}
+header b{font-size:15px;letter-spacing:.3px}
 #badge{padding:2px 10px;border-radius:99px;font-weight:600;background:var(--ok);color:#06210f}
 #badge.paused{background:#e5b84b;color:#2a1d00}
+#badge.off{background:var(--mu);color:#111}
 button{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 12px;cursor:pointer;font:inherit}
 button:hover{border-color:var(--ac)}
-main{display:grid;grid-template-columns:220px 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px;min-height:0}
+.mu{color:var(--mu)}
+main{display:grid;grid-template-columns:200px minmax(0,1fr) 380px;gap:8px;padding:8px;min-height:0}
 section{background:var(--pn);border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;min-height:0;min-width:0}
-section h2{margin:0;padding:6px 10px;font-size:12px;color:var(--mu);border-bottom:1px solid var(--bd);font-weight:600}
+section h2{margin:0;padding:6px 10px;font-size:12px;color:var(--mu);border-bottom:1px solid var(--bd);font-weight:600;display:flex;gap:8px;align-items:center}
 .body{overflow:auto;padding:8px 10px;flex:1;min-height:0}
-#tree{grid-row:1/3}
-#code{grid-column:2}
-#term{grid-column:3}
-#say{grid-column:2}
-#tl{grid-column:3}
-pre{margin:0;font:12.5px/1.5 Consolas,monospace;white-space:pre-wrap;word-break:break-all}
-.ln{display:block;padding:0 4px}.ln.new{background:var(--hi)}
-.f{padding:1px 4px;border-radius:4px}.f.new{background:var(--hi)}.f.dir{color:var(--mu)}.f.sel{outline:1px solid var(--ac)}
+#right{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-height:0}
+/* 강의 무대 */
+#stageh{font-size:13px;color:var(--tx)}
+#stageh .tag{padding:1px 8px;border-radius:4px;background:var(--cur);color:var(--ac);font-weight:600}
+#stage pre{margin:0;font:14px/1.6 Consolas,"D2Coding",monospace;counter-reset:ln}
+.l{display:block;padding:0 8px 0 0;white-space:pre-wrap;word-break:break-all;border-left:3px solid transparent}
+.l::before{counter-increment:ln;content:counter(ln);display:inline-block;width:3em;margin-right:12px;text-align:right;color:var(--cm);user-select:none}
+.l.cur{background:var(--cur);border-left-color:var(--ac)}
+.l.add{background:var(--add);border-left-color:var(--ok)}
+.l.del{background:var(--del);border-left-color:var(--er);text-decoration:line-through;text-decoration-color:rgba(239,107,107,.6)}
+.l.dim{opacity:.45}
+.kw{color:var(--kw)}.st{color:var(--st)}.cm{color:var(--cm);font-style:italic}.nu{color:var(--nu)}
+#bar{height:3px;background:var(--ac);width:0;transition:width .1s linear}
+.cmdbig{font:16px/1.6 Consolas,monospace;padding:14px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.cmdbig .p{color:var(--ac)}
+/* 탐색기 */
+.f{padding:1px 4px;border-radius:4px;white-space:nowrap;font-size:13px}.f.new{background:var(--add)}.f.dir{color:var(--mu)}.f.sel{outline:1px solid var(--ac)}
+/* 설명·터미널 */
+.say{padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--ac);background:var(--cur);border-radius:4px}
+.say.last{font-size:15px}
+#termb{margin:0;font:12.5px/1.5 Consolas,monospace;white-space:pre-wrap;word-break:break-all}
 .cmd{color:var(--ac)}.err{color:var(--er)}.okc{color:var(--ok)}
-.ev{padding:2px 0;border-bottom:1px dashed var(--bd);font-size:12.5px}.ev small{color:var(--mu)}
-.say{padding:6px 8px;margin-bottom:6px;border-left:3px solid var(--ac);background:rgba(110,168,254,.08);border-radius:4px}
-@media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:none}#tree,#code,#term,#say,#tl{grid-column:1;grid-row:auto;min-height:180px}body{height:auto}}
+footer{border-top:1px solid var(--bd);background:var(--pn);padding:4px 12px;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1000px){main{grid-template-columns:1fr}#right{grid-template-rows:auto auto}}
 </style>
 </head>
 <body>
 <header>
-  <b>CS Studio</b><span id="badge">연결 중</span><span id="step" style="color:var(--mu)"></span>
-  <button id="bp">일시정지</button><button id="br">재개</button>
-  <label style="color:var(--mu)">작업 간 지연 <input id="sp" type="range" min="0" max="5" step="0.5" value="1" style="vertical-align:middle"> <span id="spv">1</span>초</label>
-  <span id="why" style="color:var(--mu)"></span>
+  <b>CS Studio</b><span id="badge" class="off">연결 중</span><span id="step" class="mu"></span>
+  <button id="bp" title="Space">일시정지</button><button id="br" title="Space">재개</button><button id="bn" title="→">다음 블록 ▶</button>
+  <label class="mu">속도 <input id="sp" type="range" min="0.25" max="4" step="0.25" value="1" style="vertical-align:middle"> <span id="spv">1</span>×</label>
+  <span id="why" class="mu"></span>
 </header>
 <main>
-  <section id="tree"><h2>프로젝트 탐색기</h2><div class="body" id="treeb"></div></section>
-  <section id="code"><h2 id="codeh">코드</h2><div class="body"><pre id="codeb">아직 선택된 파일이 없습니다.</pre></div></section>
-  <section id="term"><h2>터미널 · 실행 로그 (실제 출력)</h2><div class="body"><pre id="termb"></pre></div></section>
-  <section id="say"><h2>Claude 설명</h2><div class="body" id="sayb"></div></section>
-  <section id="tl"><h2>타임라인 (이벤트)</h2><div class="body" id="tlb"></div></section>
+  <section><h2>프로젝트 탐색기 · workspace</h2><div class="body" id="treeb"></div></section>
+  <section id="stage"><h2 id="stageh"><span class="mu">강의 무대</span></h2><div id="bar"></div><div class="body" id="stageb"><p class="mu">Claude 가 코드를 쓰거나 명령을 실행하려 하면, 실제로 하기 전에 여기에 먼저 하나씩 보여 줍니다.</p></div></section>
+  <div id="right">
+    <section><h2>Claude 설명</h2><div class="body" id="sayb"></div></section>
+    <section><h2>터미널 · 실제 출력</h2><div class="body"><pre id="termb"></pre></div></section>
+  </div>
 </main>
+<footer id="tl">이벤트 없음</footer>
 <script>
 const $=id=>document.getElementById(id);
-const prev={}, fresh=new Set(); let cur=null;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-async function j(u,o){const r=await fetch(u,o);return r.json()}
-async function post(u,b){return j(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})})}
-$('bp').onclick=()=>post('/pause',{reason:'화면에서 일시정지'});
-$('br').onclick=()=>post('/resume');
-$('sp').oninput=e=>{$('spv').textContent=e.target.value;post('/speed',{delay:+e.target.value})};
-async function drawTree(){
-  const t=await j('/tree');
-  $('treeb').innerHTML=t.length?t.map(x=>`<div class="f ${x.dir?'dir':''} ${fresh.has(x.path)?'new':''} ${cur===x.path?'sel':''}" data-p="${esc(x.path)}" style="padding-left:${4+8*(x.path.split('/').length-1)}px;cursor:${x.dir?'default':'pointer'}">${x.dir?'▸ ':''}${esc(x.path.split('/').pop())}</div>`).join(''):'<span style="color:var(--mu)">비어 있음</span>';
-  $('treeb').querySelectorAll('.f:not(.dir)').forEach(e=>e.onclick=()=>show(e.dataset.p));
+const j=(u,o)=>fetch(u,o).then(r=>r.json());
+const post=(u,b)=>j(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+let S={mode:'running',speed:1}, skip=false, fresh=new Set(), curFile=null;
+
+/* ---------- 제어 ---------- */
+const pause=r=>post('/pause',{reason:r||'화면에서 일시정지'}), resume=()=>post('/resume');
+$('bp').onclick=()=>pause(); $('br').onclick=resume; $('bn').onclick=()=>{skip=true};
+$('sp').oninput=e=>{$('spv').textContent=e.target.value;S.speed=+e.target.value;post('/speed',{speed:+e.target.value})};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();S.mode==='running'?pause('Space 키'):resume()}
+  else if(e.code==='ArrowRight'){skip=true}
+  else if(S.mode==='running'){pause('화면에서 키 입력')}          // 그 밖의 키 = 사용자 개입
+});
+$('stageb').addEventListener('mousedown',()=>{if(S.mode==='running')pause('강의 무대 클릭')});
+async function refresh(){S=await j('/state');const b=$('badge');b.textContent=S.mode==='running'?'진행 중':'일시정지';b.className=S.mode==='running'?'':'paused';$('why').textContent=S.mode==='paused'?S.reason:'';$('sp').value=S.speed;$('spv').textContent=S.speed}
+
+/* ---------- 구문 강조 ---------- */
+const RX=/(#[^\n]*|\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`[^`]*`)|\b(def|class|return|import|from|if|elif|else|for|while|in|not|and|or|try|except|finally|with|as|lambda|None|True|False|const|let|var|function|async|await|new|export|default|this|null|true|false|print|raise|pass|yield)\b|\b(\d+(?:\.\d+)?)\b/g;
+function hl(line){let o='',i=0;line.replace(RX,(m,c,s,k,n,at)=>{o+=esc(line.slice(i,at))+`<span class="${c?'cm':s?'st':k?'kw':'nu'}">${esc(m)}</span>`;i=at+m.length});return o+esc(line.slice(i))||' '}
+const L=(t,cls)=>`<span class="l ${cls||''}">${hl(t)}</span>`;
+
+/* ---------- 기다리기: 일시정지면 멈추고, '다음 블록' 이면 건너뜀 ---------- */
+async function dwell(sec){
+  const total=sec*1000/S.speed;let left=total;skip=false;
+  while(left>0){if(skip){skip=false;break}await new Promise(r=>setTimeout(r,100));if(S.mode==='running')left-=100;$('bar').style.width=(100*(1-left/total))+'%'}
+  $('bar').style.width='0';
 }
-async function show(p){
-  cur=p; const f=await j('/file?path='+encodeURIComponent(p)); if(f.error)return;
-  const old=new Set((prev[p]||'').split('\n')); const first=!(p in prev);
-  $('codeh').textContent='코드 · '+p;
-  $('codeb').innerHTML=f.text.split('\n').map(l=>`<span class="ln ${!first&&!old.has(l)?'new':''}">${esc(l)||' '}</span>`).join('');
-  prev[p]=f.text; drawTree();
+const blockSec=lines=>3+0.7*lines;      // 초보자가 읽을 시간(속도 1× 기준)
+function focusWin(){}   // 창을 앞으로 가져오는 일은 프로그램(app.py)이 PRESENT 를 보고 직접 한다
+function head(tag,text){$('stageh').innerHTML=`<span class="tag">${tag}</span> ${esc(text)}`}
+function scrollTo(sel){const e=$('stageb').querySelector(sel);if(e)e.scrollIntoView({block:'center',behavior:'smooth'})}
+
+/* 코드를 블록(빈 줄로 나뉜 덩어리) 단위로 하나씩 보여 준다 */
+function blocksOf(text){const ls=text.replace(/\r/g,'').split('\n');const bs=[];let cur=[];for(const l of ls){cur.push(l);if(l.trim()===''&&cur.some(x=>x.trim())){bs.push(cur);cur=[]}}if(cur.length)bs.push(cur);return bs}
+async function presentWrite(d){
+  head(d.new_file?'새 파일':'파일 다시 쓰기',d.path);
+  const bs=blocksOf(d.content), before=new Set((d.before||'').split('\n'));
+  for(let i=0;i<bs.length;i++){
+    let h='';bs.forEach((b,k)=>{if(k>i)return;b.forEach(l=>{h+=L(l,k===i?(d.new_file||!before.has(l)?'cur':'cur'):(d.new_file||before.has(l)?'':'add'))})});
+    $('stageb').innerHTML=`<pre>${h}</pre><p class="mu">블록 ${i+1} / ${bs.length}</p>`;scrollTo('.l.cur');
+    await dwell(blockSec(bs[i].filter(x=>x.trim()).length));
+  }
 }
-function term(html){const t=$('termb');t.insertAdjacentHTML('beforeend',html);t.parentElement.scrollTop=1e9}
-function add(e){
-  const d=e.data||{}, t=new Date(e.ts*1000).toLocaleTimeString();
-  $('tlb').insertAdjacentHTML('beforeend',`<div class="ev">#${e.id} <b class="${e.status==='error'?'err':''}">${e.type}</b> <small>${t}</small> ${esc(d.path||d.command||d.tool||d.reason||'')}</div>`);
-  $('tlb').parentElement.scrollTop=1e9;
-  if(e.type==='STEP_STARTED'){$('step').textContent='단계: '+e.step+(d.title?' - '+d.title:'')}
-  if(e.type==='EXPLAIN'){$('sayb').insertAdjacentHTML('beforeend',`<div class="say">${esc(d.text)}</div>`);$('sayb').scrollTop=1e9}
-  if(e.type==='RUN_COMMAND')term(`<span class="cmd">$ ${esc(d.command)}</span>\n<small>(${esc(d.cwd||'')})</small>\n`);
-  if(e.type==='COMMAND_OUTPUT'){term(esc(d.stdout||'')+(d.stderr?`<span class="err">${esc(d.stderr)}</span>`:'')+`\n<span class="${e.status==='ok'?'okc':'err'}">[종료 코드 ${d.exit_code??'?'}]</span>\n\n`)}
-  if(e.type==='BLOCKED'||e.type==='WAITING')term(`<span class="err">[${e.type}] ${esc(d.why||'')}</span>\n`);
-  if(['CREATE_FILE','WRITE_CODE','MODIFY_CODE'].includes(e.type)&&d.path){fresh.add(d.path)}
-  if(e.type==='VALIDATE'&&d.path&&d.exists){drawTree().then(()=>show(d.path));setTimeout(()=>{fresh.delete(d.path);drawTree()},4000)}
+async function presentEdit(d){
+  head('코드 수정',d.path);
+  let text='';try{text=(await j('/file?path='+encodeURIComponent(d.path))).text||''}catch(e){}
+  for(const [n,e] of d.edits.entries()){
+    const at=text.indexOf(e.old_string);
+    const pre=at<0?'':text.slice(0,at), post=at<0?'':text.slice(at+e.old_string.length);
+    const ctx=(s,last)=>{const ls=s.split('\n');return last?ls.slice(-6):ls.slice(0,6)};
+    const oldL=e.old_string.split('\n'),newL=e.new_string.split('\n');
+    const show=mid=>`<pre>${ctx(pre,1).map(l=>L(l,'dim')).join('')}${mid}${ctx(post,0).map(l=>L(l,'dim')).join('')}</pre><p class="mu">수정 ${n+1} / ${d.edits.length}</p>`;
+    $('stageb').innerHTML=show(oldL.map(l=>L(l,'del')).join(''));scrollTo('.l.del');await dwell(2+0.3*oldL.length);
+    $('stageb').innerHTML=show(newL.map(l=>L(l,'add')).join(''));scrollTo('.l.add');await dwell(blockSec(newL.length));
+    if(at>=0)text=pre+e.new_string+post;
+  }
+}
+async function presentCommand(d){
+  head('명령 실행',d.cwd||'');
+  $('stageb').innerHTML=`${d.description?`<p>${esc(d.description)}</p>`:''}<div class="cmdbig"><span class="p">$</span> ${esc(d.command)}</div><p class="mu">이 명령을 실행합니다. 결과는 오른쪽 터미널에 실제 출력 그대로 나옵니다.</p>`;
+  await dwell(3+0.02*d.command.length);
+}
+const queue=[];let busy=false;
+async function pump(){if(busy)return;busy=true;while(queue.length){const e=queue.shift();focusWin();const d=e.data;
+  try{if(d.kind==='write')await presentWrite(d);else if(d.kind==='edit')await presentEdit(d);else if(d.kind==='command')await presentCommand(d)}catch(err){console.error(err)}
+  await post('/ack',{id:e.id})}busy=false}
+
+/* ---------- 탐색기 ---------- */
+async function drawTree(){const t=await j('/tree');
+  $('treeb').innerHTML=t.length?t.map(x=>`<div class="f ${x.dir?'dir':''} ${fresh.has(x.path)?'new':''} ${curFile===x.path?'sel':''}" style="padding-left:${4+10*(x.path.split('/').length-1)}px">${x.dir?'▸ ':''}${esc(x.path.split('/').pop())}</div>`).join(''):'<span class="mu">비어 있음</span>'}
+async function showSaved(path){if(busy||queue.length)return;const f=await j('/file?path='+encodeURIComponent(path));if(f.error)return;curFile=path;head('저장됨 ✓',path);$('stageb').innerHTML=`<pre>${f.text.split('\n').map(l=>L(l)).join('')}</pre><p class="mu">디스크에 실제로 저장된 내용입니다.</p>`;drawTree()}
+
+/* ---------- 이벤트 ---------- */
+function term(h){$('termb').insertAdjacentHTML('beforeend',h);$('termb').parentElement.scrollTop=1e9}
+function on(e){
+  const d=e.data||{};
+  $('tl').textContent=`#${e.id} ${e.type} ${d.path||d.command||d.reason||d.why||''}`;
+  if(e.type==='PRESENT'){if(!(e.backlog&&e.acked)){queue.push(e);pump()}}
+  if(e.type==='STEP_STARTED')$('step').textContent='단계 '+e.step+(d.title?' · '+d.title:'');
+  if(e.type==='EXPLAIN'){$('sayb').querySelectorAll('.say').forEach(x=>x.classList.remove('last'));$('sayb').insertAdjacentHTML('beforeend',`<div class="say last">${esc(d.text)}</div>`);$('sayb').scrollTop=1e9}
+  if(e.type==='RUN_COMMAND')term(`<span class="cmd">$ ${esc(d.command)}</span>\n`);
+  if(e.type==='COMMAND_OUTPUT')term(esc(d.stdout||'')+(d.stderr?`<span class="err">${esc(d.stderr)}</span>`:'')+`\n<span class="${e.status==='ok'?'okc':'err'}">[${e.status==='ok'?'끝남':'오류'}]</span>\n\n`);
+  if(e.type==='BLOCKED'||e.type==='WAITING')term(`<span class="err">[${e.type==='BLOCKED'?'막힘':'대기'}] ${esc(d.why||'')}</span>\n`);
+  if(['CREATE_FILE','WRITE_CODE','MODIFY_CODE'].includes(e.type)&&d.path)fresh.add(d.path);
+  if(e.type==='VALIDATE'&&d.path&&d.exists){drawTree();if(!e.backlog)setTimeout(()=>showSaved(d.path),300);setTimeout(()=>{fresh.delete(d.path);drawTree()},5000)}
   if(e.type==='PAUSE'||e.type==='RESUME')refresh();
 }
-async function refresh(){const s=await j('/state');const b=$('badge');b.textContent=s.mode==='running'?'진행 중':'일시정지';b.className=s.mode==='running'?'':'paused';$('why').textContent=s.mode==='paused'?s.reason:'';$('sp').value=s.delay;$('spv').textContent=s.delay}
-refresh();drawTree();
-const es=new EventSource('/stream');es.onmessage=m=>add(JSON.parse(m.data));
+refresh();drawTree();setInterval(refresh,2000);
+const es=new EventSource('/stream');es.onmessage=m=>on(JSON.parse(m.data));es.onerror=()=>{$('badge').textContent='연결 끊김';$('badge').className='off'};
 </script>
 </body>
 </html>

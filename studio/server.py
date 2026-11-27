@@ -17,8 +17,10 @@ PORT = int(os.environ.get("CS_STUDIO_PORT", "0"))   # 0 이면 운영체제가 �
 lock = threading.Lock()
 events = []
 subs = []
-state = {"mode": "running", "delay": 1.0, "grace_until": 0.0, "reason": "", "step": "(없음)"}
+state = {"mode": "running", "delay": 0.3, "speed": 1.0, "grace_until": 0.0, "reason": "", "step": "(없음)"}
 seq = 0
+acks = set()                       # 화면이 다 보여 준 PRESENT 이벤트 id
+AUTO_ACK = os.environ.get("CS_AUTO_ACK") == "1"   # 시험용: 화면 없이 바로 확인 처리
 
 
 def now():
@@ -39,6 +41,9 @@ def add_event(type_, data=None, step=None, status="ok"):
         with open(RUN / "events.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(ev, ensure_ascii=False) + "\n")
     publish(ev)
+    if AUTO_ACK and type_ == "PRESENT":
+        with lock:
+            acks.add(ev["id"])
     return ev
 
 
@@ -109,7 +114,11 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(b)
         elif u.path == "/state":
             with lock:
-                self._json({**state, "now": now(), "app": "cs-studio"})
+                self._json({**state, "now": now(), "app": "cs-studio", "viewers": len(subs), "auto_ack": AUTO_ACK})
+        elif u.path == "/ack":
+            i = int(q.get("id", ["0"])[0])
+            with lock:
+                self._json({"acked": i in acks})
         elif u.path == "/tree":
             self._json(tree())
         elif u.path == "/file":
@@ -128,7 +137,7 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             qq = queue.Queue()
             with lock:
-                backlog = list(events)
+                backlog = [{**e, "backlog": True, "acked": e["id"] in acks} for e in events]
                 subs.append(qq)
             try:
                 for e in backlog:
@@ -156,6 +165,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/event":
             ev = add_event(b.get("type", "EVENT"), b.get("data"), b.get("step"), b.get("status", "ok"))
             self._json({"id": ev["id"]})
+        elif u.path == "/ack":
+            with lock:
+                acks.add(int(b.get("id", 0)))
+            self._json({"ok": True})
         elif u.path == "/pause":
             set_mode("paused", b.get("reason", "사용자"))
             self._json({"ok": True})
@@ -164,7 +177,10 @@ class H(BaseHTTPRequestHandler):
             self._json({"ok": True})
         elif u.path == "/speed":
             with lock:
-                state["delay"] = max(0.0, float(b.get("delay", 1.0)))
+                if "delay" in b:
+                    state["delay"] = max(0.0, float(b["delay"]))
+                if "speed" in b:
+                    state["speed"] = min(4.0, max(0.25, float(b["speed"])))
             save_state()
             self._json({"ok": True})
         elif u.path == "/step":

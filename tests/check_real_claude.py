@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 WS = ROOT / "workspace"
 RUN = pathlib.Path(tempfile.mkdtemp(prefix="cs_real_"))
 ENV = {k: v for k, v in os.environ.items() if k != "CS_STUDIO_PORT"}
-ENV.update(CS_HARNESS_RUN=str(RUN), PYTHONIOENCODING="utf-8")
+ENV.update(CS_HARNESS_RUN=str(RUN), PYTHONIOENCODING="utf-8", CS_AUTO_ACK="1")
 OUTSIDE = ROOT / "outside_test.txt"
 TARGET = WS / "real_hello.py"
 

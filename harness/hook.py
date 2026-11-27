@@ -26,6 +26,11 @@ SHELL_TOOLS = ("Bash", "PowerShell")
 READ_TOOLS = ("Read", "Glob", "Grep", "LS", "WebSearch", "WebFetch", "TodoWrite", "ToolSearch")
 # 그 밖의 도구(하위 에이전트, MCP 등)는 하네스 밖에서 일을 몰아서 처리할 수 있어 기본으로 막는다.
 MAX_WAIT = 3000  # 초. 일시정지 최대 대기
+MAX_BLOCK = int(os.environ.get("CS_MAX_BLOCK_LINES", "15"))  # 한 번에 새로 쓰는 코드 줄 수 상한(빈 줄 제외)
+
+
+def code_lines(text):
+    return sum(1 for l in (text or "").splitlines() if l.strip())
 
 
 def call(path, data=None, timeout=3):
@@ -77,6 +82,20 @@ def pre(p):
             deny(f"실습 작업 공간(workspace/) 밖의 파일입니다: {t}")
     if tool in SHELL_TOOLS and is_say(inp.get("command", "")):
         return
+    # 블록 하나씩: 한 번에 너무 많은 코드를 쓰면 막는다(하나하나 보여 주고 설명하기 위해)
+    if tool in FILE_TOOLS:
+        if tool == "Write":
+            t = target_path(inp)
+            old = t.read_text(encoding="utf-8", errors="replace") if t.exists() else ""
+            added = code_lines(inp.get("content", "")) - code_lines(old)
+        else:
+            eds = inp.get("edits") or [inp]
+            added = sum(code_lines(e.get("new_string", "")) - code_lines(e.get("old_string", "")) for e in eds)
+        if added > MAX_BLOCK:
+            call("/event", {"type": "BLOCKED", "status": "error",
+                            "data": {"tool": tool, "why": f"한 번에 코드 {added}줄 — 블록 하나({MAX_BLOCK}줄 이하)씩 써야 함"}})
+            deny(f"한 번에 새 코드 {added}줄을 쓰려 했습니다. 이 하네스는 블록 하나({MAX_BLOCK}줄 이하)씩 쓰고, "
+                 "쓰기 전에 say.py 로 그 블록이 왜 필요한지 설명합니다. 첫 블록을 Write 로, 다음 블록부터는 Edit 로 덧붙이세요.")
     # 일시정지면 풀릴 때까지 새 작업을 시작하지 않는다
     waited = 0.0
     announced = False
@@ -91,20 +110,46 @@ def pre(p):
         deny("일시정지가 풀리지 않아 작업을 시작하지 못했습니다.")
     # 이벤트 종류 결정(실제 상태를 보고 정한다)
     data = {"tool": tool}
+    show = {"tool": tool}
     if tool == "Write":
         t = target_path(inp)
         typ = "WRITE_CODE" if t.exists() else "CREATE_FILE"
-        data.update(path=t.relative_to(WS).as_posix(), bytes=len(inp.get("content", "").encode("utf-8")))
+        rel = t.relative_to(WS).as_posix()
+        data.update(path=rel, bytes=len(inp.get("content", "").encode("utf-8")))
+        show.update(kind="write", path=rel, new_file=not t.exists(), content=inp.get("content", ""),
+                    before=t.read_text(encoding="utf-8", errors="replace") if t.exists() else "")
     elif tool in ("Edit", "MultiEdit"):
         typ = "MODIFY_CODE"
-        data.update(path=target_path(inp).relative_to(WS).as_posix() if in_ws(target_path(inp)) else str(target_path(inp)))
+        rel = target_path(inp).relative_to(WS).as_posix()
+        data.update(path=rel)
+        edits = inp.get("edits") or [{"old_string": inp.get("old_string", ""), "new_string": inp.get("new_string", "")}]
+        show.update(kind="edit", path=rel, edits=edits)
     elif tool in SHELL_TOOLS:
         typ = "RUN_COMMAND"
         data.update(command=inp.get("command", ""), cwd=p.get("cwd", ""))
+        show.update(kind="command", command=inp.get("command", ""), cwd=p.get("cwd", ""),
+                    description=inp.get("description", ""))
     else:
         typ = "TOOL"
+    # 실제로 하기 전에 화면에 먼저 보여 준다. 화면이 다 보여 줬다고 알려야(ack) 진행한다.
+    ev = call("/event", {"type": "PRESENT", "data": show})
+    waited = 0.0
+    while waited < MAX_WAIT:
+        st = call("/state")
+        if st.get("viewers", 0) == 0 and not st.get("auto_ack"):
+            call("/event", {"type": "BLOCKED", "status": "error", "data": {"tool": tool, "why": "Studio 화면이 열려 있지 않음"}})
+            deny("CS Studio 화면이 열려 있지 않아 작업을 보여 줄 수 없습니다. `python harness/start.py` 로 Studio 를 여세요.")
+        if call(f"/ack?id={ev['id']}").get("acked"):
+            break
+        time.sleep(0.3)
+        waited += 0.3
+    else:
+        deny("화면이 작업을 다 보여 주지 못해 시작하지 않았습니다.")
+    # 화면을 보는 동안 일시정지가 걸렸으면 풀릴 때까지 대기
+    while call("/state")["mode"] != "running":
+        time.sleep(0.3)
     call("/event", {"type": typ, "data": data})
-    time.sleep(float(st.get("delay", 0)))   # 사람이 볼 시간(표시 속도). 실제 로그는 누락하지 않는다.
+    time.sleep(float(st.get("delay", 0)))
 
 
 def post(p):

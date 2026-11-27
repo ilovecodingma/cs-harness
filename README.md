@@ -10,9 +10,11 @@ cd cs-harness
 python harness/start.py
 ```
 
-Studio 화면이 브라우저에 열리고, 같은 터미널에서 Claude Code 가 `/시작` 으로 열립니다. 필요한 것: Python 3.10 이상, Claude Code.
+CS Studio 프로그램 창이 열리고, 같은 터미널에서 Claude Code 가 `/시작` 으로 열립니다. Claude 가 쓰려는 코드는 실제로 쓰이기 전에 Studio 에 블록 하나씩 먼저 나타나고, 설명과 함께 보여 준 뒤에 저장됩니다.
 
-- 화면의 **일시정지** 를 누르면 다음 작업이 시작되지 않습니다. 그동안 터미널에서 자유롭게 질문하세요.
-- **재개** 를 누르면 이어서 진행합니다.
+필요한 것: Python 3.10 이상, Claude Code, Windows 는 WebView2(윈도우 11 기본 포함). `pywebview` 는 처음 시작할 때 자동 설치합니다.
+
+- **Space** 또는 화면의 **일시정지** 를 누르면 다음 작업이 시작되지 않습니다. 그동안 터미널에서 자유롭게 질문하세요.
+- **재개**(Space) 를 누르면 이어서 진행합니다. **→** 는 지금 블록을 건너뜁니다.
 
 설계와 현재 구현 상태: [docs/DESIGN.md](docs/DESIGN.md)
